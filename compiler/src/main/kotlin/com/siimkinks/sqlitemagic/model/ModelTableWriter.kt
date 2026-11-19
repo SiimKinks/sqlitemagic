@@ -22,6 +22,8 @@ import com.siimkinks.sqlitemagic.annotation.FullTextVersion.FTS5
 import com.siimkinks.sqlitemagic.annotation.TableOption.WITHOUT_ROWID
 import com.siimkinks.sqlitemagic.fulltext.FullTextIndexElement
 import com.siimkinks.sqlitemagic.internal.SqliteSchema.TEMPORARY
+import com.siimkinks.sqlitemagic.manager.clearSql
+import com.siimkinks.sqlitemagic.manager.fillSql
 import com.siimkinks.sqlitemagic.utils.callCode
 import com.siimkinks.sqlitemagic.utils.namedArgument
 import com.siimkinks.sqlitemagic.writer.FullTextTableStructureWriter
@@ -144,7 +146,24 @@ internal class ModelTableWriter(
         namedArgument("alias", "%N", VARIABLE_ALIAS),
         namedArgument("contentTable", "%L", table.generationNames.tableHandle),
         namedArgument("contentRowIdColumnName", "%S", index.rowIdColumnName)
-      ),
+      ) + index
+        .fillSql()
+        ?.let { fillSql ->
+          listOf(
+            namedArgument(
+              "clearSql",
+              "%L",
+              callCode(
+                callee = CodeBlock.of("listOf"),
+                arguments = index
+                  .clearSql()
+                  .map { CodeBlock.of("%S", it) }
+              )
+            ),
+            namedArgument("fillSql", "%S", fillSql)
+          )
+        }
+        .orEmpty(),
       columns = members.mapIndexed { position, column ->
         field(
           column = column,

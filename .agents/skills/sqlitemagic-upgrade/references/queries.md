@@ -22,7 +22,7 @@ differ. Keep whichever style the call site already uses.
 ## Imports
 
 User code still imports from `com.siimkinks.sqlitemagic`. The statement starters `SELECT`, `UPDATE`, `DELETE` and
-`WITH` stay imported.
+`WITH` stay imported, as does the new `INSERT` (with `INSERT.RAW` for raw INSERT SQL).
 
 - Operations of the one type they start or modify are members now, and other legacy top-level names are gone. Delete
   these imports when they no longer resolve ("Unresolved reference"): `FROM`, `WHERE`, `GROUP_BY`, `HAVING`, `LIMIT`,
@@ -107,8 +107,10 @@ SELECT.FROM(AUTHOR)                                                   // the ent
 ```
 
 - `SELECT.FROM(table)` is always the entity query (`List<Author>`), for aliases and generic `Table<T>` helpers too.
-- `queryDeep()` moves after the last clause, needs `import com.siimkinks.sqlitemagic.queryDeep`, and exists only on
-  entity queries; `SELECT.COLUMN(…).FROM(…).queryDeep()` no longer compiles.
+- `queryDeep()` moves after the last clause and needs `import com.siimkinks.sqlitemagic.queryDeep`. It exists on
+  entity queries and on `COLUMNS`/`DISTINCT` selections, where it reads the selected entity values in full; one with
+  no table among its values throws `IllegalArgumentException`, and `SELECT.COLUMN(…).FROM(…).queryDeep()` no longer
+  compiles.
 - The entity `DISTINCT` needs the dot: `SELECT DISTINCT FROM AUTHOR` does not compile.
 
 ## Column selections, rows and partial entities
@@ -138,18 +140,17 @@ SELECT.DISTINCT(AUTHOR.ID, AUTHOR.NAME).FROM(AUTHOR).mapTo(AUTHOR)
 - Mapping decides the result, after every clause: `.mapTo(AUTHOR)` for a partial generated model, `.mapTo(::Dto)` for
   a constructor, `.mapTo { row -> … }` for a wide row. A legacy partial-entity selection always needs `.mapTo(TABLE)`.
 - A partial entity reads plain fields of the mapped table or of tables its relationships reach. A computed value
-  rejects `mapTo(TABLE)`; read it from a wide row:
+  rejects `mapTo(TABLE)`; select the table or view object beside it, which reads the whole entity as one value:
 
 ```kotlin
 // Legacy: a computed prefix before the view's columns
 Select.columns(Select.asColumn(99) AS "prefix", VIEW.all()).from(VIEW)
-// New
-val prefix = 99L.asValue() AS "prefix"
-SELECT.COLUMNS(prefix, VIEW.all()).FROM(VIEW).mapTo { row -> Prefixed(row[prefix], …) }
+// New: Prefixed(prefix: Long, view: View)
+SELECT.COLUMNS(99L.asValue() AS "prefix", VIEW).FROM(VIEW).mapTo(::Prefixed)
 ```
 
-- A view's `all()` holds its scalar columns only. A view with a required table- or view-typed property cannot be
-  mapped partially; read it whole with `SELECT FROM VIEW`.
+- The object reads the view as `SELECT FROM VIEW` does, its table- and view-typed properties included. A view's
+  `all()` selects only its scalar columns.
 
 ## Ordering, grouping and pagination
 

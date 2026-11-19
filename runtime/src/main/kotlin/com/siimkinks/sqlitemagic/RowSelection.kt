@@ -30,7 +30,10 @@ class RowSelection<R, T> internal constructor(
   private val scalarReader = expressions?.let {
     reader.create(
       values = values,
-      layout = ValueLayout(IntArray(values.size) { it })
+      layout = ValueLayout(
+        starts = IntArray(values.size) { it },
+        width = values.size
+      )
     )
   }
 
@@ -91,7 +94,7 @@ class RowSelection<R, T> internal constructor(
             deep = deep
           )
           related[slot] = read
-          read.width + read.joined.sumOf(RelatedEntities::width)
+          read.totalWidth
         }
         is DerivedEntity<*> -> {
           related[slot] = entity.export.read(next)
@@ -101,6 +104,7 @@ class RowSelection<R, T> internal constructor(
     }
     return ValueLayout(
       starts = starts,
+      width = next,
       related = related
     )
   }
@@ -199,9 +203,12 @@ internal fun interface RowReader<out T> {
 
 internal class ValueLayout(
   val starts: IntArray,
+  val width: Int,
   private val related: Array<RelatedEntities?>? = null
 ) {
   fun related(slot: Int) = related?.get(slot)
+
+  fun span(slot: Int) = starts[slot]..<starts.getOrElse(slot + 1) { width }
 }
 
 internal fun <T> typedRowReader(assemble: (SlotReads) -> ValueRead<T>) = RowReader { values, layout ->

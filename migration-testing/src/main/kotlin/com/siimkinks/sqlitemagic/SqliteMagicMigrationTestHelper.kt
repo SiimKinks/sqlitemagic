@@ -18,7 +18,6 @@ import com.siimkinks.sqlitemagic.migration.ReleaseSchemaResource
 import com.siimkinks.sqlitemagic.migration.ReleaseSchemaSnapshot
 import com.siimkinks.sqlitemagic.migration.SchemaSqlComparison
 import com.siimkinks.sqlitemagic.migration.testing.InspectedSchema
-import com.siimkinks.sqlitemagic.migration.testing.InspectedVirtualTable
 import com.siimkinks.sqlitemagic.migration.testing.SQLiteQueries
 import com.siimkinks.sqlitemagic.migration.testing.SchemaComparator
 import com.siimkinks.sqlitemagic.migration.testing.SchemaIntrospector
@@ -224,7 +223,7 @@ class SqliteMagicMigrationTestHelper(
       )
       verifyIntegrity(
         connection = connection,
-        virtualTables = expected.virtualTables
+        schema = expected
       )
       register(
         name = name,
@@ -464,7 +463,7 @@ class SqliteMagicMigrationTestHelper(
         )
         verifyIntegrity(
           connection = compiled,
-          virtualTables = expected.virtualTables
+          schema = expected
         )
       }
     }
@@ -605,7 +604,7 @@ class SqliteMagicMigrationTestHelper(
 
   private fun verifyIntegrity(
     connection: SQLiteConnection,
-    virtualTables: Map<String, InspectedVirtualTable>
+    schema: InspectedSchema
   ) {
     val integrity = SQLiteQueries.query(
       connection = connection,
@@ -617,7 +616,7 @@ class SqliteMagicMigrationTestHelper(
       sql = "PRAGMA foreign_key_check"
     ).rows
     check(foreignKeys.isEmpty()) { "SQLite foreign_key_check failed: ${foreignKeys.take(20)}" }
-    virtualTables.forEach { (name, table) ->
+    schema.virtualTables.forEach { (name, table) ->
       val identifier = quoteSqlIdentifier(name)
       try {
         SQLiteQueries.execute(
@@ -627,10 +626,45 @@ class SqliteMagicMigrationTestHelper(
             else -> "INSERT INTO main.$identifier($identifier) VALUES ('integrity-check')"
           }
         )
+        if (table.module == "fts4") {
+          verifyFts4Copy(
+            connection = connection,
+            schema = schema,
+            name = name,
+            languageIdColumn = table.languageIdColumn
+          )
+        }
       } catch (failure: Exception) {
         throw IllegalStateException("Full-text index $name is out of sync with its content table", failure)
       }
     }
+  }
+
+  private fun verifyFts4Copy(
+    connection: SQLiteConnection,
+    schema: InspectedSchema,
+    name: String,
+    languageIdColumn: String?
+  ) {
+    val identifier = quoteSqlIdentifier(name)
+    val contentTable = schema.triggers.getValue("${name}_ai").table
+    val rowId = quoteSqlIdentifier(checkNotNull(schema.tables.getValue(contentTable).rowIdAlias))
+    val columns = SQLiteQueries
+      .query(
+        connection = connection,
+        sql = "SELECT * FROM main.$identifier LIMIT 0"
+      )
+      .columns
+      .joinToString(transform = ::quoteSqlIdentifier)
+    val languageId = languageIdColumn?.let(::quoteSqlIdentifier)
+    val copy = "SELECT docid, $columns${languageId?.let { ", $it" }.orEmpty()} FROM main.$identifier"
+    val rows = "SELECT $rowId, $columns${languageId?.let { ", coalesce(CAST($it AS INTEGER), 0)" }.orEmpty()} " +
+        "FROM main.${quoteSqlIdentifier(contentTable)}"
+    val differences = SQLiteQueries.query(
+      connection = connection,
+      sql = "SELECT EXISTS ($copy EXCEPT $rows) OR EXISTS ($rows EXCEPT $copy)"
+    ).rows
+    check(differences == listOf(listOf(0L))) { "FTS4 index $name holds text that differs from $contentTable" }
   }
 
   private fun register(

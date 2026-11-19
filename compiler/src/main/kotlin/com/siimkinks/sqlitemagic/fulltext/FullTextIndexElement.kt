@@ -70,7 +70,13 @@ internal fun fullTextShadowTableNames(
   matchinfo: FullTextMatchinfo
 ) = when (version) {
   FTS5 -> listOfNotNull("data", "idx", "docsize".takeIf { columnSize }, "config")
-  FTS4 -> listOfNotNull("segments", "segdir", "docsize".takeIf { matchinfo == FullTextMatchinfo.FTS4 }, "stat")
+  FTS4 -> listOfNotNull(
+    "content",
+    "segments",
+    "segdir",
+    "docsize".takeIf { matchinfo == FullTextMatchinfo.FTS4 },
+    "stat"
+  )
 }.map { suffix -> "${name}_$suffix" }
 
 internal fun fullTextSchemaOwners(

@@ -143,7 +143,8 @@ internal fun compileMutation(
   deletedTable: String? = null,
   parameterValues: List<ParameterAssignment> = emptyList(),
   cache: Boolean = true,
-  skipped: Boolean = false
+  skipped: Boolean = false,
+  prelude: List<String> = emptyList()
 ) = prepareQuery(
   renderable = renderable,
   connection = connection
@@ -155,6 +156,7 @@ internal fun compileMutation(
       tables = tables,
       deletedTable = deletedTable,
       cache = cache,
-      skipped = skipped
+      skipped = skipped,
+      prelude = prelude
     )
   }

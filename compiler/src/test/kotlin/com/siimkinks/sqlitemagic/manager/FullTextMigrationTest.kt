@@ -496,7 +496,7 @@ internal class FullTextMigrationTest {
         )
       )
     )
-    val fts5Drops = listOf(
+    val indexDrops = listOf(
       """DROP TRIGGER IF EXISTS main."article_fts_ai"""",
       """DROP TRIGGER IF EXISTS main."article_fts_ad"""",
       """DROP TRIGGER IF EXISTS main."article_fts_au"""",
@@ -528,33 +528,26 @@ internal class FullTextMigrationTest {
     ).isEqualTo(
       mapOf(
         "adding an FTS5 index to an existing table" to fts5Creates,
-        "removing an FTS5 index" to fts5Drops,
-        "changing an FTS5 index" to fts5Drops + fts5Creates,
-        "rebuilding the content table of an FTS5 index" to fts5Drops + listOf(
+        "removing an FTS5 index" to indexDrops,
+        "changing an FTS5 index" to indexDrops + fts5Creates,
+        "rebuilding the content table of an FTS5 index" to indexDrops + listOf(
           """ALTER TABLE "article" RENAME TO "article_"""",
           """CREATE TABLE IF NOT EXISTS "article" ("id" INTEGER PRIMARY KEY, "title" TEXT, "body" TEXT)""",
           """INSERT INTO "article" ("id","title","body") SELECT "id","title","body" FROM "article_"""",
           """DROP TABLE IF EXISTS "article_""""
         ) + fts5Creates,
-        "changing an FTS4 index" to listOf(
-          """DROP TRIGGER IF EXISTS main."article_fts_ai"""",
-          """DROP TRIGGER IF EXISTS main."article_fts_bd"""",
-          """DROP TRIGGER IF EXISTS main."article_fts_bu"""",
-          """DROP TRIGGER IF EXISTS main."article_fts_au"""",
-          """DROP TABLE IF EXISTS main."article_fts"""",
-          """CREATE VIRTUAL TABLE IF NOT EXISTS main."article_fts" USING fts4("title", "body", content='article')""",
+        "changing an FTS4 index" to indexDrops + listOf(
+          """CREATE VIRTUAL TABLE IF NOT EXISTS main."article_fts" USING fts4("title", "body")""",
           """CREATE TRIGGER IF NOT EXISTS main."article_fts_ai" AFTER INSERT ON "article" BEGIN INSERT INTO """ +
               """"article_fts"(docid, "title", "body") VALUES (new."id", new."title", new."body"); END""",
-          """CREATE TRIGGER IF NOT EXISTS main."article_fts_bd" BEFORE DELETE ON "article" BEGIN DELETE FROM """ +
+          """CREATE TRIGGER IF NOT EXISTS main."article_fts_ad" AFTER DELETE ON "article" BEGIN DELETE FROM """ +
               """"article_fts" WHERE docid = old."id"; END""",
-          """CREATE TRIGGER IF NOT EXISTS main."article_fts_bu" BEFORE UPDATE OF "id", "title", "body", rowid, """ +
-              """oid, _rowid_ ON "article" WHEN old."id" IS NOT new."id" OR old."title" IS NOT new."title" OR """ +
-              """old."body" IS NOT new."body" BEGIN DELETE FROM "article_fts" WHERE docid = old."id"; END""",
           """CREATE TRIGGER IF NOT EXISTS main."article_fts_au" AFTER UPDATE OF "id", "title", "body", rowid, """ +
               """oid, _rowid_ ON "article" WHEN old."id" IS NOT new."id" OR old."title" IS NOT new."title" OR """ +
-              """old."body" IS NOT new."body" BEGIN INSERT INTO "article_fts"(docid, "title", "body") VALUES """ +
-              """(new."id", new."title", new."body"); END""",
-          """INSERT INTO main."article_fts"("article_fts") VALUES ('rebuild')"""
+              """old."body" IS NOT new."body" BEGIN DELETE FROM "article_fts" WHERE docid = old."id"; INSERT INTO """ +
+              """"article_fts"(docid, "title", "body") VALUES (new."id", new."title", new."body"); END""",
+          """INSERT INTO main."article_fts"(docid, "title", "body") SELECT "id", "title", "body" FROM """ +
+              """main."article""""
         )
       )
     )
@@ -598,9 +591,7 @@ internal class FullTextMigrationTest {
         MigratedIndices(
           dropped = migration.statements.objectNames(prefix = "DROP TABLE IF EXISTS main."),
           created = migration.statements.objectNames(prefix = CREATE_INDEX_PREFIX),
-          rebuilt = migration.statements
-            .filter { it.endsWith("VALUES ('rebuild')") }
-            .objectNames(prefix = "INSERT INTO main."),
+          rebuilt = migration.statements.objectNames(prefix = "INSERT INTO main."),
           matches = connection.matches(
             indices = current.fullTextIndices.keys,
             version = version

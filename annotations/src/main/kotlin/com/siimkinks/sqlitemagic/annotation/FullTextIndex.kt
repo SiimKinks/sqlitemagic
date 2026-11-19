@@ -6,9 +6,10 @@ import kotlin.annotation.AnnotationTarget.CLASS
 /**
  * Defines a full-text index on a table.
  *
- * The index is an external-content SQLite FTS table: it stores the search index, reads the text from the table and
- * is kept in sync by generated triggers. Every [FullText] property of the table that refers to this index is a
- * column of it, in property declaration order.
+ * The index is an SQLite FTS table that generated triggers keep in sync with the table. An FTS5 index stores only the
+ * search index and reads the text from the table. An FTS4 index also stores its own copy of the text of its columns,
+ * so that a write the table skips, such as an update that `CONFLICT_IGNORE` skips, leaves it unchanged. Every
+ * [FullText] property of the table that refers to this index is a column of it, in property declaration order.
  *
  * The table must have a stable row ID: an [Id] stored as `INTEGER`, or a [RowId] beside an [Id] stored otherwise.
  * `TEMPORARY` and `WITHOUT_ROWID` tables cannot have a full-text index. A database with a full-text index turns on

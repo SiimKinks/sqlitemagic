@@ -91,7 +91,9 @@ internal data class FullTextIndexStructure(
   val forTable: String = "",
   val tableSql: String = "",
   val triggers: Map<String, String> = emptyMap(),
-  val shadowTables: List<String> = emptyList()
+  val shadowTables: List<String> = emptyList(),
+  @EncodeDefault(NEVER)
+  val fillSql: String = ""
 ) {
   companion object {
     fun from(index: FullTextIndexElement) = FullTextIndexStructure(
@@ -99,7 +101,8 @@ internal data class FullTextIndexStructure(
       forTable = index.tableName,
       tableSql = index.createTableSql(),
       triggers = index.triggerSqlByName(),
-      shadowTables = index.shadowTableNames
+      shadowTables = index.shadowTableNames,
+      fillSql = index.fillSql().orEmpty()
     )
   }
 }

@@ -37,7 +37,12 @@ internal class FullTextTableContractTest {
       .withGeneratedSource("LetterFtsTable.kt") {
         it.assertContainsUnwrapped(
           """public class LetterFtsTable private constructor(alias: String?) : Fts4Table(name = "letter_fts", """ +
-              """alias = alias, contentTable = LetterTable.LETTER, contentRowIdColumnName = "id")""",
+              """alias = alias, contentTable = LetterTable.LETTER, contentRowIdColumnName = "id", """ +
+              """clearSql = listOf("DROP TABLE IF EXISTS main.\"letter_fts\"", "CREATE VIRTUAL TABLE IF NOT EXISTS """ +
+              """main.\"letter_fts\" USING fts4(\"subject\", \"tag\", languageid=\"language\", """ +
+              """notindexed=\"tag\")"), """ +
+              """fillSql = "INSERT INTO main.\"letter_fts\"(docid, \"subject\", \"tag\", \"language\") """ +
+              """SELECT \"id\", \"subject\", \"tag\", \"language\" FROM main.\"letter\"")""",
           "public val SUBJECT: Fts4Column<String, Required, String, String, Required, String> = Fts4Column(" +
               """table = fieldTable, name = "subject", position = 0,""",
           "public val TAG: Fts4Column<String, SqlNullable, String?, String?, SqlNullable, String?> = " +

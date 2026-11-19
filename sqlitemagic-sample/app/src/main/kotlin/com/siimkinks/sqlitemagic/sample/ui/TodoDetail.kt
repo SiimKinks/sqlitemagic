@@ -39,6 +39,7 @@ import com.siimkinks.sqlitemagic.sample.data.MATCH_START
 import com.siimkinks.sqlitemagic.sample.data.TodoItem
 import com.siimkinks.sqlitemagic.sample.data.TodoList
 import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers
+import io.reactivex.rxjava3.core.Observable
 
 @Composable
 internal fun TodoDetail(
@@ -70,24 +71,28 @@ internal fun TodoDetail(
   }.subscribeAsState(initial = null)
   var query by rememberSaveable { mutableStateOf("") }
   val matches by remember(query) {
-    TodoItem.search(
-      listId = listId,
-      text = query
-    )
-      .observe()
-      .runQuery()
-      .map { found ->
-        found.map { match ->
-          TodoRow(
-            item = match.item,
-            title = boldMatches(
-              title = match.item.title,
-              highlighted = match.highlightedTitle
+    when {
+      query.isBlank() -> Observable.empty()
+      else -> TodoItem
+        .search(
+          listId = listId,
+          text = query
+        )
+        .observe()
+        .runQuery()
+        .map { found ->
+          found.map { match ->
+            TodoRow(
+              item = match.item,
+              title = boldMatches(
+                title = match.item.title,
+                highlighted = match.highlightedTitle
+              )
             )
-          )
+          }
         }
-      }
-      .observeOn(AndroidSchedulers.mainThread())
+        .observeOn(AndroidSchedulers.mainThread())
+    }
   }.subscribeAsState(initial = null)
   val remaining by remember {
     TodoItem.countItemsFor(listId)

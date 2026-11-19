@@ -25,5 +25,5 @@ internal class DefaultDbDowngrader(
 }
 
 private const val PERSISTENT_SCHEMA_OBJECTS = "SELECT upper(type), name FROM sqlite_master " +
-    "WHERE type IN ('view', 'table') AND name != 'android_metadata' AND name NOT LIKE 'sqlite%' " +
-    "ORDER BY type = 'table', sql NOT LIKE 'CREATE VIRTUAL TABLE%'"
+    """WHERE type IN ('trigger', 'view', 'table') AND name != 'android_metadata' AND name NOT LIKE 'sqlite\_%' """ +
+    """ESCAPE '\' ORDER BY type != 'trigger', type = 'table', sql NOT LIKE 'CREATE VIRTUAL TABLE%'"""

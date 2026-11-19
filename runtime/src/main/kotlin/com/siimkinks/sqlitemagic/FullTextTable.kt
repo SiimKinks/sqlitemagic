@@ -91,8 +91,9 @@ sealed class FullTextTable(
    * Create a statement that rebuilds this index from the rows of its table.
    *
    * The triggers of the table keep the index in sync with it, so a rebuild is needed only after something else
-   * changed the table, such as a connection that disabled the triggers. Observed queries of the table re-run after
-   * it.
+   * changed the table, such as a connection that disabled the triggers, or when [integrityCheck] reports the index
+   * corrupt. An FTS4 index is dropped, created again and refilled from the rows of the table in one transaction.
+   * Observed queries of the table re-run after it.
    *
    * Example:
    * ```
@@ -103,13 +104,23 @@ sealed class FullTextTable(
    *
    * @return SQL statement
    * @see [SQLite documentation: The 'rebuild' command](https://www.sqlite.org/fts5.html#the_rebuild_command)
-   * @see [SQLite documentation: The 'rebuild' command of FTS4](https://www.sqlite.org/fts3.html#rebuild)
    */
   @CheckResult
-  fun rebuild(): MutationQuery = FullTextCommand(
-    raw = table.command("rebuild"),
-    tables = arrayOf(table.contentTable.name)
-  )
+  fun rebuild(): MutationQuery = when (this) {
+    is Fts5Table -> FullTextCommand(
+      raw = table.command("rebuild"),
+      tables = arrayOf(table.contentTable.name)
+    )
+    is Fts4Table -> FullTextCommand(
+      raw = ExpressionNode.Raw(
+        sql = fillSql,
+        arguments = emptyList(),
+        dependencies = QueryDependencies.NONE
+      ),
+      tables = arrayOf(table.contentTable.name),
+      prelude = clearSql
+    )
+  }
 
   /**
    * Create a statement that merges the segments of this index, which makes searches faster.
@@ -131,10 +142,11 @@ sealed class FullTextTable(
   )
 
   /**
-   * Create a statement that checks this index against the rows of its table.
+   * Create a statement that checks this index against the text it indexes.
    *
-   * The statement fails with SQLite's error, such as "database disk image is malformed", when the index is
-   * corrupt or differs from the rows of the table; [rebuild] repairs it.
+   * An FTS5 index reads the text from the rows of its table, and an FTS4 index from its own copy of the text, which
+   * the triggers of the table keep in sync. The statement fails with SQLite's error, such as "database disk image is
+   * malformed", when the index is corrupt or differs from that text; [rebuild] repairs it.
    *
    * Example:
    * ```
@@ -270,7 +282,9 @@ abstract class Fts4Table @InternalSqliteMagicApi protected constructor(
   name: String,
   alias: String?,
   contentTable: Table<*>,
-  contentRowIdColumnName: String
+  contentRowIdColumnName: String,
+  internal val clearSql: List<String>,
+  internal val fillSql: String
 ) : FullTextTable(
   name = name,
   alias = alias,
@@ -530,12 +544,14 @@ internal class FullTextIndexTable(
 private class FullTextCommand(
   private val raw: ExpressionNode.Raw,
   private val tables: Array<String> = emptyArray(),
+  private val prelude: List<String> = emptyList(),
   private val connection: DbConnectionImpl? = null,
   private val parameterValues: List<ParameterAssignment> = emptyList()
 ) : MutationQuery {
   override fun usingConnection(connection: DbConnection) = FullTextCommand(
     raw = raw,
     tables = tables,
+    prelude = prelude,
     connection = connection as DbConnectionImpl,
     parameterValues = parameterValues
   )
@@ -543,6 +559,7 @@ private class FullTextCommand(
   override fun bind(vararg assignments: ParameterAssignment) = FullTextCommand(
     raw = raw,
     tables = tables,
+    prelude = prelude,
     connection = connection,
     parameterValues = assignments.asList()
   )
@@ -551,6 +568,7 @@ private class FullTextCommand(
     renderable = raw,
     connection = connection,
     tables = tables,
-    parameterValues = parameterValues
+    parameterValues = parameterValues,
+    prelude = prelude
   )
 }

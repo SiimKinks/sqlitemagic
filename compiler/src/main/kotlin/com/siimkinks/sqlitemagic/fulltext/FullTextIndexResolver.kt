@@ -168,15 +168,7 @@ internal class FullTextIndexResolver(
             if (languageIds.size > 1) {
               report("FTS4 index '$name' has more than one LANGUAGE_ID column: $modelName")
             }
-            columns
-              .filter { column -> column != rowIdColumn && column.columnName.normalizedSqlIdentifier() == "rowid" }
-              .forEach { column ->
-                report(
-                  "Column name '${column.columnName}' hides the row ID that FTS4 index '$name' reads: " +
-                      describe(column)
-                )
-              }
-            setOf("docid")
+            setOf("docid", "rowid")
           }
         } + name.normalizedSqlIdentifier()
         indexMembers

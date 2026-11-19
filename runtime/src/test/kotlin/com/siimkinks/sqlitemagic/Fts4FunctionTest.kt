@@ -175,11 +175,124 @@ internal class Fts4FunctionTest {
 
     assertThat(commands.map { it.compile().sql } to changes).isEqualTo(
       listOf(
-        """INSERT INTO "main"."paper_fts"("paper_fts") VALUES ('rebuild')""",
+        PAPER_FTS_FILL,
         """INSERT INTO "main"."paper_fts"("paper_fts") VALUES ('optimize')""",
         """INSERT INTO "main"."paper_fts"("paper_fts") VALUES ('integrity-check')"""
-      ) to listOf(1, 1, 1)
+      ) to listOf(4, 1, 1)
     )
+  }
+
+  @Test
+  fun `rebuild copies the rows of the table into an index that missed their changes and notifies the table`() {
+    data class Rebuild(
+      val stale: List<Long>,
+      val copied: Int,
+      val found: List<Long>,
+      val triggers: List<Set<String>>
+    )
+
+    val changes = mapOf(
+      "changed rows" to listOf("DELETE FROM paper WHERE id = 1", "UPDATE paper SET title = 'Fresh index' WHERE id = 4"),
+      "emptied table" to listOf("DELETE FROM paper")
+    )
+    val rebuilds = changes.mapValues { (_, statements) ->
+      paperDatabase().use { database ->
+        statements.forEach(database::execSQL)
+        val stale = database.found()
+        val recorder = database.connection.recordTriggers()
+        val copied = PAPER_FTS
+          .rebuild()
+          .usingConnection(database.connection)
+          .execute()
+        PAPER_FTS
+          .integrityCheck()
+          .usingConnection(database.connection)
+          .execute()
+        Rebuild(
+          stale = stale,
+          copied = copied,
+          found = database.found(),
+          triggers = recorder.triggers
+        )
+      }
+    }
+
+    assertThat(rebuilds).isEqualTo(
+      mapOf(
+        "changed rows" to Rebuild(
+          stale = listOf(1L, 3L),
+          copied = 3,
+          found = listOf(3L, 4L),
+          triggers = listOf(setOf("paper"))
+        ),
+        "emptied table" to Rebuild(
+          stale = listOf(1L, 3L),
+          copied = 0,
+          found = emptyList(),
+          triggers = listOf(setOf("paper"))
+        )
+      )
+    )
+  }
+
+  @Test
+  fun `rebuild whose copy fails keeps the index and the earlier work of its transaction`() {
+    val results = mapOf("outside a transaction" to false, "inside a transaction" to true)
+      .mapValues { (_, inTransaction) ->
+        paperDatabase().use { database ->
+          fun failedRebuild(): String? {
+            database.execSQL("DROP TABLE paper")
+            return sqliteErrorMessage {
+              PAPER_FTS
+                .rebuild()
+                .usingConnection(database.connection)
+                .execute()
+            }
+          }
+
+          val error = when {
+            inTransaction -> {
+              val transaction = database.connection.newTransaction()
+              try {
+                database.execSQL("INSERT INTO paper_fts(docid, title, tag) VALUES (5, 'Fresh notes', 'lang')")
+                failedRebuild().also { transaction.markSuccessful() }
+              } finally {
+                transaction.end()
+              }
+            }
+            else -> failedRebuild()
+          }
+          error to database.found()
+        }
+      }
+
+    assertThat(results).isEqualTo(
+      mapOf(
+        "outside a transaction" to ("no such table: main.paper" to listOf(1L, 3L)),
+        "inside a transaction" to ("no such table: main.paper" to listOf(1L, 3L, 5L))
+      )
+    )
+  }
+
+  @Test
+  fun `rebuild repairs a corrupt index`() {
+    val repair = paperDatabase().use { database ->
+      (101..114).forEach { docId ->
+        database.execSQL("INSERT INTO paper_fts(docid, title, tag) VALUES ($docId, 'Extra', 'lang')")
+      }
+      database.execSQL("UPDATE paper_fts_segdir SET root = zeroblob(length(root))")
+      fun MutationQuery.run() = usingConnection(database.connection).execute()
+      val corruptCheck = sqliteErrorMessage { PAPER_FTS.integrityCheck().run() }
+      PAPER_FTS
+        .rebuild()
+        .run()
+      PAPER_FTS
+        .integrityCheck()
+        .run()
+      corruptCheck to database.found()
+    }
+
+    assertThat(repair).isEqualTo("database disk image is malformed" to listOf(1L, 3L))
   }
 
   @Test
@@ -351,12 +464,20 @@ private class PaperTable(alias: String? = null) : Table<Unit>(
 
 private val PAPER = PaperTable()
 
+private const val PAPER_FTS_CREATE = """CREATE VIRTUAL TABLE IF NOT EXISTS main."paper_fts" USING """ +
+    """fts4("title", "tag", "summary", languageid="language", notindexed="tag")"""
+
+private const val PAPER_FTS_FILL = """INSERT INTO main."paper_fts"(docid, "title", "tag", "summary", "language") """ +
+    """SELECT "id", "title", "tag", "summary", "language" FROM main."paper""""
+
 @Suppress("PropertyName", "TestFunctionName")
 private class PaperFtsTable(alias: String? = null) : Fts4Table(
   name = "paper_fts",
   alias = alias,
   contentTable = PAPER,
-  contentRowIdColumnName = "id"
+  contentRowIdColumnName = "id",
+  clearSql = listOf("""DROP TABLE IF EXISTS main."paper_fts"""", PAPER_FTS_CREATE),
+  fillSql = PAPER_FTS_FILL
 ) {
   val TITLE = Fts4Column<String, Required, String, String, Required, String>(
     table = fieldTable,
@@ -386,13 +507,17 @@ private class PaperFtsTable(alias: String? = null) : Fts4Table(
 
 private val PAPER_FTS = PaperFtsTable()
 
+private fun TestDatabase.found() = query(
+  sql = "SELECT docid FROM paper_fts WHERE paper_fts MATCH 'sqlite OR fresh' ORDER BY docid",
+  read = { it.getLong(0) }
+)
+
 private fun paperDatabase() = TestDatabase(
   "CREATE TABLE paper (id INTEGER PRIMARY KEY, title TEXT NOT NULL, tag TEXT NOT NULL, summary TEXT, " +
       "language INTEGER NOT NULL)",
   "INSERT INTO paper VALUES (1, 'SQLite search', 'db', NULL, 0), (2, 'Room guide', 'sqlite', 'sqlite room', 1), " +
       "(3, 'Kotlin notes', 'lang', 'sqlite from kotlin, sqlite everywhere and in every app', 0), " +
       "(4, 'Title: room - guide', 'lang', NULL, 0)",
-  """CREATE VIRTUAL TABLE paper_fts USING fts4(title, tag, summary, content='paper', languageid="language", """ +
-      """notindexed="tag")""",
-  "INSERT INTO paper_fts(paper_fts) VALUES ('rebuild')"
+  PAPER_FTS_CREATE,
+  PAPER_FTS_FILL
 )

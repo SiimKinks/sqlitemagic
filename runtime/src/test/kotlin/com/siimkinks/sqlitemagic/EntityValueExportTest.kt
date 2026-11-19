@@ -46,6 +46,7 @@ internal class EntityValueExportTest {
     .FROM(AUTHOR)
     .INNER_JOIN(PUBLISHER)
     .ON(PUBLISHER.ID IS AUTHOR.PUBLISHER)
+  private val deepShelf = (SELECT FROM BOOK).queryDeep() AS "deep_shelf"
 
   @Test
   fun `derived sources and CTEs export entity values that derived entities read`() {
@@ -283,6 +284,7 @@ internal class EntityValueExportTest {
     val bookColumns = """"book"."id", "book"."title", "book"."author""""
     val authorColumns = """"author"."id", "author"."name", "author"."publisher""""
     val authorJoin = """LEFT JOIN "main"."author" ON "book"."author" = "author"."id""""
+    val publisherJoin = """LEFT JOIN "main"."publisher" ON "author"."publisher" = "publisher"."id""""
     val books = SELECT
       .COLUMNS(BOOK, BOOK.TITLE)
       .FROM(BOOK)
@@ -351,6 +353,28 @@ internal class EntityValueExportTest {
         rows = listOf(shallowAda to "Tor")
       ),
       QueryCase(
+        label = "queryDeep() of a compound whose first arm selects only a derived entity",
+        query = (
+          SELECT
+            .COLUMN(deepShelf[BOOK])
+            .FROM(deepShelf)
+            .WHERE(deepShelf[BOOK.ID] IS 1L) UNION_ALL SELECT
+            .FROM(BOOK)
+            .WHERE(BOOK.ID IS 3L)
+        ).queryDeep(),
+        sql = """SELECT "deep_shelf"."book.id", "deep_shelf"."book.title", "deep_shelf"."book.author", """ +
+            """"deep_shelf"."book.author.id", "deep_shelf"."book.author.name", """ +
+            """"deep_shelf"."book.author.publisher", "deep_shelf"."book.author.publisher.id", """ +
+            """"deep_shelf"."book.author.publisher.name" FROM (SELECT """ +
+            """"book"."id" AS "book.id", "book"."title" AS "book.title", "book"."author" AS "book.author", """ +
+            """"author"."id" AS "book.author.id", "author"."name" AS "book.author.name", "author"."publisher" AS """ +
+            """"book.author.publisher", "publisher"."id" AS "book.author.publisher.id", "publisher"."name" AS """ +
+            """"book.author.publisher.name" FROM "main"."book" $authorJoin $publisherJoin) AS "deep_shelf" WHERE """ +
+            """"deep_shelf"."book.id" = ? UNION ALL SELECT $bookColumns, $authorColumns, "publisher"."id", """ +
+            """"publisher"."name" FROM "main"."book" $authorJoin $publisherJoin WHERE "book"."id" = ?""",
+        rows = listOf(deepBooks[0], deepBooks[2])
+      ),
+      QueryCase(
         label = "UNION ALL of selected rows",
         query = (wide.WHERE(AUTHOR.ID IS 1L) UNION_ALL wide.WHERE(AUTHOR.ID IS 3L))
           .mapTo { row -> row[AUTHOR] to row[PUBLISHER.NAME] },
@@ -409,7 +433,23 @@ internal class EntityValueExportTest {
       { wide UNION_ALL widePublishers },
       { wide INTERSECT wideFields },
       { wide EXCEPT widePublishers },
-      { wide UNION wideNullable }
+      { wide UNION wideNullable },
+      {
+        val shallowShelf = SELECT.FROM(BOOK) AS "shallow_shelf"
+        (
+          SELECT
+            .COLUMNS(BOOK, deepShelf[BOOK])
+            .FROM(BOOK)
+            .INNER_JOIN(deepShelf)
+            .ON(deepShelf[BOOK.ID] IS BOOK.ID) UNION_ALL (
+            SELECT
+              .COLUMNS(BOOK, shallowShelf[BOOK])
+              .FROM(BOOK)
+              .INNER_JOIN(shallowShelf)
+              .ON(shallowShelf[BOOK.ID] IS BOOK.ID)
+          ).queryDeep()
+        ).compile()
+      }
     ).map { failure -> assertThrows(IllegalArgumentException::class.java) { failure() }.message }
 
     assertThat(failures).isEqualTo(
@@ -437,7 +477,9 @@ internal class EntityValueExportTest {
         "Result value 1 is the author entity in the left SELECT but the publisher entity in the connected SELECT; " +
             "select entities of the same table in the same place",
         "Result value 1 (author) is NOT NULL in the left SELECT but nullable in the connected SELECT; select it " +
-            "with .nullable() in the left SELECT"
+            "with .nullable() in the left SELECT",
+        "Entity values take columns 1–6, 7–14 in the left SELECT but 1–8, 9–14 in the connected SELECT; read each " +
+            "entity to the same depth in both, as queryDeep() on the compound does"
       )
     )
   }

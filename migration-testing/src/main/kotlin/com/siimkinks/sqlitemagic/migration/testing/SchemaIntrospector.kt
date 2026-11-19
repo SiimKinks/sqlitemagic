@@ -10,7 +10,8 @@ internal data class InspectedSchema(
 
 internal data class InspectedVirtualTable(
   val module: String,
-  val definition: String
+  val definition: String,
+  val languageIdColumn: String?
 )
 
 internal data class InspectedTrigger(
@@ -198,7 +199,13 @@ internal object SchemaIntrospector {
         )
         objectRow.text("name").sqliteIdentifier() to InspectedVirtualTable(
           module = tokens[using + 1].word,
-          definition = SchemaSql.identifierCanonical(tokens)
+          definition = SchemaSql.identifierCanonical(tokens),
+          languageIdColumn = tokens
+            .windowed(size = 3)
+            .firstOrNull { (option, equals) ->
+              !option.quotedIdentifier && option.word == "languageid" && equals.isPunctuation("=")
+            }
+            ?.let { (_, _, value) -> value.optionValue() }
         )
       }
     val triggers = objects
@@ -324,4 +331,14 @@ internal object SchemaIntrospector {
   private fun Map<String, Any?>.number(key: String): Long =
     get(key) as? Long
       ?: throw SchemaInspectionException("Missing integer metadata '$key'")
+}
+
+private fun SqlToken.optionValue() = when {
+  literal -> text
+      .removeSurrounding("'")
+      .replace(
+        oldValue = "''",
+        newValue = "'"
+      )
+  else -> text
 }

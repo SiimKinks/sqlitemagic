@@ -95,5 +95,7 @@ differ. Keep whichever style the call site already uses.
   `row(…)` comparisons, window functions (`ROW_NUMBER() OVER …`), `FILTER_WHERE`, `scalarFunction(name)`.
 - Arithmetic (`+ - * / %`, unary `-`) reads SQLite's result as `Number` (`Long` or `Double` per value) instead of
   `Double`; `/` and `%` results are nullable. Convert with `toLong()`/`toDouble()`, or choose a fixed reader with
-  `readAs(SqlType.LONG)`/`readAs(SqlType.DOUBLE)` on a scalar query. A field takes plain numbers of its own type:
+  `readAs(SqlType.LONG)`/`readAs(SqlType.DOUBLE)` on a scalar query or on the expression itself,
+  `(TABLE.INTEGER / 2).readAs(SqlType.LONG)` (`Long?`), which ports arithmetic inside multi-column rows, `mapTo`
+  constructors and `SET` values; the SQL is unchanged. A field takes plain numbers of its own type:
   `TABLE.INTEGER * 2.5` is rejected (as before); use `TABLE.INTEGER * 2.5.asValue()`.

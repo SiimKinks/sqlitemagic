@@ -20,6 +20,7 @@ loggers. Each item says how to find affected code and what to do.
 - [Nested queries resolve names as SQL does](#nested-queries-resolve-names-as-sql-does)
 - [Compounds type by the left arm](#compounds-type-by-the-left-arm)
 - [View columns have qualified names](#view-columns-have-qualified-names)
+- [Subqueries and views reject repeated column names](#subqueries-and-views-reject-repeated-column-names)
 - [Entity operations throw SQLite's exceptions](#entity-operations-throw-sqlites-exceptions)
 - [The schema follows Kotlin nullability](#the-schema-follows-kotlin-nullability)
 - [Smaller behavior changes](#smaller-behavior-changes)
@@ -73,7 +74,9 @@ SQLite returns. Unary minus no longer keeps the field's type.
 - Find: `+ - * / %` and unary `-` on fields in projections, DTO constructors and code that formats or compares the
   result as `Double`.
 - Do: accept `Number`/`Number?` and convert (`toLong()`, `toDouble()`), or choose a fixed reader with
-  `readAs(SqlType.LONG)`/`readAs(SqlType.DOUBLE)` on a scalar query. Handle `null` from `/` and `%`.
+  `readAs(SqlType.LONG)`/`readAs(SqlType.DOUBLE)` on a scalar query or per expression,
+  `(TABLE.INTEGER / 2).readAs(SqlType.LONG)`, inside multi-column rows, `mapTo` constructors and `SET` values. Handle
+  `null` from `/` and `%`.
 
 ## Legacy sum was TOTAL
 
@@ -207,8 +210,8 @@ subquery; the same query now reads the updated row's own `count`.
 
 A view's columns are named by its definition: an `AS` alias, otherwise the field's qualified name (`book.title`,
 `author.name`), qualified by the table object as written (`AUTHOR.NAME` is `author.name` even when it reads an aliased
-join). An unaliased computed value is named `_N` by its position, so alias it. Legacy named them `title` and `name` and matched `@ViewColumn` keys per row, falling back to the last
-name segment and then to a position.
+join). An unaliased computed value is named `_N` by its position, so alias it. Legacy named them `title` and `name`
+and matched `@ViewColumn` keys per row, falling back to the last name segment and then to a position.
 
 - `@ViewColumn` keys that name a selected field, alias or block keep working, now resolved once by name. A key that
   relied on the last-segment fallback must name the qualified column; a missing name now fails with SQLite's
@@ -220,6 +223,19 @@ name segment and then to a position.
   views; temporary views are created on every open. Release the upgrade as
   [database-upgrade.md](database-upgrade.md#release-the-upgrade) describes, and test reading the view from a database
   that legacy code created.
+
+## Subqueries and views reject repeated column names
+
+Legacy accepted a subquery or view definition that selected two columns of one name, and SQLite kept the first of
+them (or renamed the second, `book.title:1`), so the second could not be read. Now it fails naming both columns: a
+derived source or common table expression throws `IllegalArgumentException` when it is used as a source (`AS`,
+`asCte()`, `WITH`, `FROM`), and a view definition when the view is created (`Cannot create view 'book_card': its
+definition exports two columns named book.title, from selected value 1 (the book) and selected value 2 (…); alias one
+of them`). Names follow the view rules above, so a legacy view selecting `BOOK.all() AS "book"` and `BOOK.TITLE`,
+ported to `BOOK` and `BOOK.TITLE`, exports `book.title` twice; so does `BOOK.all()` beside `BOOK.TITLE` in a subquery.
+
+- Find: subqueries and view definitions that select a table's block or `all()` beside one of its fields.
+- Do: alias one of the two (`BOOK.TITLE AS "title"`) and point its `@ViewColumn` key at the alias.
 
 ## Entity operations throw SQLite's exceptions
 

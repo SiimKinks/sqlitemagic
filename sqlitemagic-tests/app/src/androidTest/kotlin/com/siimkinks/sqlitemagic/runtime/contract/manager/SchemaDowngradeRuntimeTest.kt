@@ -92,7 +92,7 @@ internal class SchemaDowngradeRuntimeTest {
   }
 
   @Test
-  fun defaultDowngradeDropsFullTextIndexesWithTheirShadowTablesAndRecreatesSearchableIndexes() = withNamedDatabase(
+  fun defaultDowngradeDropsTriggersAndIndexesBeforeCascadingTablesAndRecreatesSearchableIndexes() = withNamedDatabase(
     databaseName = FULL_TEXT_DOWNGRADE_DATABASE_NAME
   ) { application ->
     val database = SqliteMagicDatabase()
@@ -100,15 +100,15 @@ internal class SchemaDowngradeRuntimeTest {
       application = application,
       databaseName = FULL_TEXT_DOWNGRADE_DATABASE_NAME
     ).use { oldConnection ->
-      oldConnection.execSQL("CREATE TABLE letter (id INTEGER PRIMARY KEY, subject TEXT)")
-      oldConnection.execSQL("INSERT INTO letter VALUES (1, 'discarded dune')")
-      oldConnection.execSQL("CREATE VIRTUAL TABLE letter_fts USING fts4(subject, content='letter')")
+      database.createSchema(oldConnection)
+      oldConnection.execSQL("INSERT INTO letter_author VALUES (1, 'Frank')")
+      oldConnection.execSQL(
+        "INSERT INTO letter (id, subject, body, tag, language, author) VALUES (1, 'discarded dune', NULL, 'old', 0, 1)"
+      )
       oldConnection.execSQL("CREATE TABLE obsolete_note (id INTEGER PRIMARY KEY, body TEXT)")
       oldConnection.execSQL("INSERT INTO obsolete_note VALUES (1, 'obsolete dune')")
-      oldConnection.execSQL("CREATE VIRTUAL TABLE obsolete_note_fts USING fts4(body, content='obsolete_note')")
-      listOf("letter_fts", "obsolete_note_fts").forEach { index ->
-        oldConnection.execSQL("INSERT INTO $index($index) VALUES ('rebuild')")
-      }
+      oldConnection.execSQL("CREATE VIRTUAL TABLE obsolete_note_fts USING fts4(body)")
+      oldConnection.execSQL("INSERT INTO obsolete_note_fts(docid, body) SELECT id, body FROM obsolete_note")
       oldConnection.execSQL("PRAGMA user_version = ${database.dbVersion + 1}")
     }
 
@@ -122,7 +122,7 @@ internal class SchemaDowngradeRuntimeTest {
         type = "table",
         connection = connection
       )
-      assertThat(tables).containsAtLeast("letter", "letter_fts", "letter_fts_segdir")
+      assertThat(tables).containsAtLeast("letter", "letter_fts", "letter_fts_content", "letter_fts_segdir")
       assertThat(tables.filter { it.orEmpty().startsWith("obsolete_note") }).isEmpty()
 
       Letter(

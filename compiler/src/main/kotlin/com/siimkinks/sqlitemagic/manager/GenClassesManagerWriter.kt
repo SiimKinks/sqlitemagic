@@ -262,7 +262,9 @@ internal class GenClassesManagerWriter(
         addStatement("%L", execSql("DELETE FROM ${table.schema.qualifiedSqlIdentifier(table.tableName)}"))
         addStatement("changedTables.add(%S)", table.tableName)
       }
-      fullTextIndexes.forEach { addStatement("%L", execSql(it.clearSql())) }
+      fullTextIndexes
+        .flatMap(FullTextIndexElement::clearSql)
+        .forEach { addStatement("%L", execSql(it)) }
       fullTextIndexes
         .flatMap(FullTextIndexElement::createTriggerSql)
         .forEach { addStatement("%L", execSql(it)) }

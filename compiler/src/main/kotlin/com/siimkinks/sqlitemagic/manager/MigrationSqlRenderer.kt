@@ -70,10 +70,7 @@ internal object MigrationSqlRenderer {
     plan.fullTextCreates.forEach { index ->
       migrationStatements += index.tableSql
       migrationStatements += index.triggers.values
-      migrationStatements += fullTextCommandSql(
-        name = index.name,
-        command = "rebuild"
-      )
+      migrationStatements += index.fillSql()
     }
     return migrationStatements
   }

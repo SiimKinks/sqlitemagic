@@ -20,13 +20,28 @@ internal fun FullTextIndexElement.createTriggerSql() = triggerSqlByName().values
 
 internal fun FullTextIndexElement.dropTriggerSql() = triggerSqlByName().keys.map(::dropFullTextTriggerSql)
 
-internal fun FullTextIndexElement.clearSql() = fullTextCommandSql(
-  name = name,
-  command = when (version) {
-    FTS5 -> "delete-all"
-    FTS4 -> "rebuild"
-  }
-)
+internal fun FullTextIndexElement.clearSql() = when (version) {
+  FTS5 -> listOf(
+    fullTextCommandSql(
+      name = name,
+      command = "delete-all"
+    )
+  )
+  FTS4 -> listOf(dropFullTextTableSql(name), createTableSql())
+}
+
+internal fun FullTextIndexElement.fillSql() = when (version) {
+  FTS5 -> null
+  FTS4 -> "INSERT INTO ${MAIN.qualifiedSqlIdentifier(name)}(docid, ${columnList()}) " +
+      "SELECT ${values(row = null)} FROM ${MAIN.qualifiedSqlIdentifier(tableName)}"
+}
+
+internal fun FullTextIndexStructure.fillSql() = fillSql.ifEmpty {
+  fullTextCommandSql(
+    name = name,
+    command = "rebuild"
+  )
+}
 
 internal fun FullTextIndexElement.createTableSql(): String {
   val options = when (version) {
@@ -63,21 +78,15 @@ internal fun FullTextIndexElement.triggerSqlByName() = when (version) {
       statements = listOf(insertSql(rowId = "docid"))
     ),
     trigger(
-      suffix = BEFORE_DELETE_TRIGGER_SUFFIX,
-      event = "BEFORE DELETE",
-      statements = listOf(fts4DeleteSql())
-    ),
-    trigger(
-      suffix = BEFORE_UPDATE_TRIGGER_SUFFIX,
-      event = "BEFORE ${updateEvent()}",
-      condition = changedCondition(),
+      suffix = DELETE_TRIGGER_SUFFIX,
+      event = "AFTER DELETE",
       statements = listOf(fts4DeleteSql())
     ),
     trigger(
       suffix = UPDATE_TRIGGER_SUFFIX,
       event = "AFTER ${updateEvent()}",
       condition = changedCondition(),
-      statements = listOf(insertSql(rowId = "docid"))
+      statements = listOf(fts4DeleteSql(), insertSql(rowId = "docid"))
     )
   )
 }
@@ -87,7 +96,7 @@ internal fun dropFullTextTriggerSql(triggerName: String) =
 
 internal fun dropFullTextTableSql(name: String) = "DROP TABLE IF EXISTS ${MAIN.qualifiedSqlIdentifier(name)}"
 
-internal fun fullTextCommandSql(
+private fun fullTextCommandSql(
   name: String,
   command: String
 ) = "INSERT INTO ${MAIN.qualifiedSqlIdentifier(name)}(${quoteSqlIdentifier(name)}) VALUES (${quoteSqlLiteral(command)})"
@@ -111,7 +120,6 @@ private fun FullTextIndexElement.fts5Definitions() = columns.map { column ->
 )
 
 private fun FullTextIndexElement.fts4Definitions() = tableColumns.map { quoteSqlIdentifier(it.columnName) } +
-    "content=${quoteSqlLiteral(tableName)}" +
     listOfNotNull(languageIdColumn?.let { "languageid=${quoteSqlIdentifier(it.columnName)}" }) +
     tableColumns
       .filter { it.role == UNINDEXED }
@@ -151,12 +159,17 @@ private fun FullTextIndexElement.fts4DeleteSql() =
 
 private fun FullTextIndexElement.columnList() = columns.joinToString { quoteSqlIdentifier(it.columnName) }
 
-private fun FullTextIndexElement.values(row: String) = listOf(rowIdColumnName)
+private fun FullTextIndexElement.values(row: String?) = listOf(rowIdColumnName)
   .plus(columns.map(FullTextColumnElement::columnName))
-  .joinToString { "$row.${quoteSqlIdentifier(it)}" }
+  .joinToString { column ->
+    when (row) {
+      null -> quoteSqlIdentifier(column)
+      else -> "$row.${quoteSqlIdentifier(column)}"
+    }
+  }
 
 private fun FullTextIndexElement.changeColumnNames() = columns
-  .filter { it.role != UNINDEXED }
+  .filter { version == FTS4 || it.role != UNINDEXED }
   .map(FullTextColumnElement::columnName)
   .let { listOf(rowIdColumnName) + it }
   .distinct()
@@ -168,5 +181,3 @@ private fun FullTextIndexElement.changedCondition() = changeColumnNames().joinTo
 private const val INSERT_TRIGGER_SUFFIX = "_ai"
 private const val DELETE_TRIGGER_SUFFIX = "_ad"
 private const val UPDATE_TRIGGER_SUFFIX = "_au"
-private const val BEFORE_DELETE_TRIGGER_SUFFIX = "_bd"
-private const val BEFORE_UPDATE_TRIGGER_SUFFIX = "_bu"

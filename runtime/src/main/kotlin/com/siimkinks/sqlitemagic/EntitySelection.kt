@@ -103,11 +103,12 @@ fun <T> SelectQuery<T, EntitySelection<T>>.queryDeep() = SelectQuery(
  * An entity that a subquery or a common table expression selects keeps the depth of that query.
  *
  * @return SQL SELECT statement
- * @throws IllegalArgumentException if no selected value is the entity of a table
+ * @throws IllegalArgumentException if no selected value of this query or of an arm of its compound is the entity of
+ *     a table
  */
 @JvmName("queryRowsDeep")
 fun <R, T> SelectQuery<T, RowSelection<R, T>>.queryDeep(): SelectQuery<T, RowSelection<R, T>> {
-  require(node.selection.deepensEntities) { "queryDeep() deepens entity values, and this selection has none" }
+  require(node.deepensEntities) { "queryDeep() deepens entity values, and this selection has none" }
   return SelectQuery(
     node
       .withSelection(node.selection.deep())

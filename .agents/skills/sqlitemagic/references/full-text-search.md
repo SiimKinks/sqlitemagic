@@ -11,9 +11,9 @@ bundled driver; FTS4 works on both drivers.
 ## Declare an index
 
 `@FullTextIndex` on a `@Table` and `@FullText` on each column to search declare an SQLite FTS5 index, or FTS4 with
-`version = FullTextVersion.FTS4`. The library creates it with the schema as an external-content FTS table named
-`<table>_fts`, which reads the text from the table, and keeps it in sync with generated triggers; the application
-writes only the table.
+`version = FullTextVersion.FTS4`. The library creates it with the schema as an FTS table named `<table>_fts` and
+keeps it in sync with generated triggers; the application writes only the table. An FTS5 index reads the text from
+the table; an FTS4 index stores its own copy of it, so an update that `CONFLICT_IGNORE` skips leaves it unchanged.
 
 ```kotlin
 @Table
@@ -63,12 +63,12 @@ data class Article(
   one column, whose value SQLite reads as an integer: it splits the index by it, and a search matches language 0 unless
   it also compares `MEMO_FTS.LANGUAGE` ([Search](#search)). `detail` and `columnSize` are compile errors on FTS4, the
   FTS4 options on FTS5.
-- Indexed columns cannot be named like the index, nor `rank` or `rowid` in FTS5 or `docid` in FTS4. A table with an
-  FTS4 index cannot have a column named `rowid` other than its row ID, since FTS4 reads the row ID by that name.
+- Columns of the index cannot be named like the index, nor `rank` or `rowid` in FTS5, nor `docid` or `rowid` in FTS4.
 - A schema with a full-text index runs every library connection with `PRAGMA recursive_triggers = ON`, so rows that
   `CONFLICT_REPLACE` replaces leave the index. Connections the library did not open (the `sqlite3` shell, Database
   Inspector) run without it.
-- Entity updates re-index a row only when its row ID or an indexed column changed.
+- Entity updates re-index a row only when its row ID or a column of the index changed (in FTS5, one that is not
+  `UNINDEXED`).
 - Search it with the generated index object, `ArticleFtsTable.Companion.ARTICLE_FTS` (the index name in upper snake
   case): `SELECT FROM ARTICLE WHERE (ARTICLE_FTS MATCH query)` ([Search](#search)).
 - Migrations keep the index in step with the model and its table. A removed or changed index is dropped before the
@@ -97,8 +97,8 @@ WHERE "article_fts"."article_fts" MATCH ? ORDER BY "article_fts"."rank" ASC
 
 - `ARTICLE_FTS MATCH q` searches every indexed column; `ARTICLE_FTS.TITLE MATCH q` only that column.
   `ARTICLE_FTS.RANK` is the match rank (`Double?`, lower is better, NULL in a query that does not search the index);
-  `ARTICLE_FTS.ROWID` has the type of the table's row ID: its INTEGER `@Id`, or `Long` for `@RowId`, compared with
-  `NOTE.ROW_ID`.
+  `ARTICLE_FTS.ROWID` has the type of the table's row ID: its INTEGER `@Id`, or `Long` for a
+  [`@RowId`](models.md#ids), compared with the table's `ROW_ID` field.
 - A query that names the index without joining it gets an `INNER JOIN` placed directly after its table, before the
   joins of relationships, so SQLite scans the index first and reads rows and related entities by key. `count()` keeps
   the join. Queries observe the table, which is what changes the index.
@@ -147,7 +147,7 @@ WHERE "article_fts"."article_fts" MATCH ? ORDER BY BM25("article_fts"."article_f
   ellipsis, tokens)` a fragment of at most `tokens` (up to 64) around the matches, and `SNIPPET(ARTICLE_FTS, …)` one
   from the best matching column. The column functions read `String`, `String?` for a nullable column;
   `SNIPPET(ARTICLE_FTS, …)` reads `String?`. The library passes the column's position in the index and binds the
-  other arguments, weights included.
+  other arguments, weights included; `BM25` writes the literal `1.0` for an unweighted column before a weighted one.
 - `BM25(ARTICLE_FTS)` equals `RANK` under `MATCH`; `BM25(ARTICLE_FTS.TITLE to 10.0, ARTICLE_FTS.BODY to 0.5)`
   weighs columns (unnamed ones weigh 1.0), so matches in heavier columns rank better. Weighing a column twice or
   columns of different indexes (an alias counts as another) or a NaN weight fails before SQL.
@@ -171,7 +171,8 @@ WHERE "article_fts"."article_fts" MATCH ? ORDER BY BM25("article_fts"."article_f
     .execute()
   ```
 
-- Maintenance statements on the index object, executed like other statements: `ARTICLE_FTS.rebuild()` refills the
-  index from the table (needed only after something bypassed the triggers; observers of the table re-run),
-  `optimize()` merges its segments, and `integrityCheck()` fails with SQLite's error ("database disk image is
-  malformed") when the index differs from the table's rows.
+- Maintenance statements on the index object, executed like other statements: `ARTICLE_FTS.rebuild()` rebuilds the
+  index from the table (needed only after something bypassed the triggers or when `integrityCheck()` fails; observers
+  of the table re-run), `optimize()` merges its segments, and `integrityCheck()` fails with SQLite's error ("database
+  disk image is malformed") when the index differs from the text it indexes: the table's rows for FTS5, its own copy
+  for FTS4.

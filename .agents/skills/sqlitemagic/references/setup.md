@@ -14,9 +14,10 @@ Dependencies, the SQLite driver, initialization, connection tuning, modules and 
 
 ## Dependencies
 
-SqliteMagic 3 supports Android API 24 and newer, Kotlin and KSP. Apply the KSP plugin next to the SqliteMagic plugin;
-the plugin adds the runtime, annotations and KSP processor. Every `com.siimkinks.sqlitemagic:*` artifact uses the
-plugin's version.
+SqliteMagic 3 supports Android API 24 and newer, Kotlin and KSP. Its artifacts are built with Kotlin 2.4, so the
+module needs a Kotlin compiler that reads its metadata: Kotlin 2.3 or newer. Apply the KSP plugin next to the
+SqliteMagic plugin; the plugin adds the runtime, annotations and KSP processor. Every `com.siimkinks.sqlitemagic:*`
+artifact uses the plugin's version.
 
 ```kotlin
 plugins {
@@ -119,6 +120,9 @@ There is no default driver. Keep the project's choice; for a new project:
   ([full-text-search.md](full-text-search.md)): the framework driver has no FTS5 module on any API level, so a schema
   with an FTS5 index fails to open there. FTS4 indexes work on both.
 - Choose framework when locale-aware text handling, minimal APK size or the Database Inspector matter.
+- On the framework driver, each connection takes the app's default locale when it opens. After the locale changes
+  while the app runs, connections that open later sort `LOCALIZED` text by the new locale and the earlier ones by the
+  old locale until the app restarts.
 - On the framework driver, each process's first open of a WAL database logs
   `E/SQLiteLog: (5) statement aborts … [PRAGMA journal_mode=…]` and
   `W/SQLiteConnection: Could not change the database journal mode …`. The driver keeps the file in WAL on purpose;
@@ -148,6 +152,7 @@ File databases run in WAL mode with one writer connection and up to four reader 
   ([full-text-search.md](full-text-search.md)).
 - The database is a set of files: `<name>`, `<name>-wal`, `<name>-shm`. Backups and copies must include all three, or
   run `PRAGMA wal_checkpoint(TRUNCATE)` first.
+- A corrupt database fails with an exception and its files are kept.
 
 Tune them on the builder; `configureConnection` runs on every connection after the defaults:
 

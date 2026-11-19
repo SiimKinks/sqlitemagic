@@ -32,7 +32,8 @@ spelling reference a file needs, not all of them up front:
 - In the [SqliteMagic repository](https://github.com/SiimKinks/sqlitemagic), the
   [README](https://github.com/SiimKinks/sqlitemagic/blob/3.x/README.md) documents 3.x setup and release
   migrations, the legacy sources are at tag `2.0.0` (`git show 2.0.0:<path>`), and
-  `git diff 2.0.0 3.0.0 -- sqlitemagic-sample` is a small worked upgrade of a real app.
+  `git diff 2.0.0 3.1.0 -- sqlitemagic-sample` is a worked upgrade of a real app, which also adds full-text search to
+  the sample.
 - Code on 2.x needs only this skill's references and the 3.x entries of the
   [changelog](https://github.com/SiimKinks/sqlitemagic/blob/3.x/CHANGELOG.md). Code on an older 0.x release also
   needs its 2.0.0 entries, such as the move to the KSP processor and the raised minimum API.

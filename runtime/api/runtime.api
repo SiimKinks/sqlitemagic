@@ -336,7 +336,7 @@ public final class com/siimkinks/sqlitemagic/Fts4Column : com/siimkinks/sqlitema
 }
 
 public abstract class com/siimkinks/sqlitemagic/Fts4Table : com/siimkinks/sqlitemagic/FullTextTable {
-	protected fun <init> (Ljava/lang/String;Ljava/lang/String;Lcom/siimkinks/sqlitemagic/Table;Ljava/lang/String;)V
+	protected fun <init> (Ljava/lang/String;Ljava/lang/String;Lcom/siimkinks/sqlitemagic/Table;Ljava/lang/String;Ljava/util/List;Ljava/lang/String;)V
 	public abstract fun AS (Ljava/lang/String;)Lcom/siimkinks/sqlitemagic/Fts4Table;
 	public synthetic fun AS (Ljava/lang/String;)Lcom/siimkinks/sqlitemagic/FullTextTable;
 	public final fun terms (Ljava/lang/String;Z)Ljava/lang/String;

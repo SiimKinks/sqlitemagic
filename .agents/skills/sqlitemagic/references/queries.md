@@ -147,12 +147,12 @@ val titles: List<String> = (SELECT COLUMN BOOK.TITLE FROM BOOK).execute()
           FROM BOOK
           LEFT_JOIN editor ON (BOOK.EDITOR IS editor.ID)
       )
-    .queryDeep()
     .execute()
   ```
 
-  Here `BOOK` reads its `editor` from the `editor` join and joins `author` automatically. Entity values work in
-  `DISTINCT`, `count()`, `EXISTS`, [derived sources and CTEs](#subqueries-and-derived-sources) and
+  Here `BOOK` reads its `editor` from the `editor` join and joins `author` automatically, both in full since `Author`
+  has a required `name`; `queryDeep()` matters only for related objects that can be built from their IDs. Entity
+  values work in `DISTINCT`, `count()`, `EXISTS`, [derived sources and CTEs](#subqueries-and-derived-sources) and
   [compounds](#compound-queries); `mapTo(BOOK)` and `INSERT … SELECT` take plain values only, and a wide selection
   whose only value is an entity is rejected: `SELECT FROM AUTHOR` reads one entity, and `SELECT COLUMN source[AUTHOR]`
   the entity of a [derived source or CTE](#subqueries-and-derived-sources).
@@ -324,7 +324,8 @@ val authorsWithLatest = SELECT.COLUMNS(AUTHOR.NAME, latestTitle).FROM(AUTHOR)
   ```
 
   `source[AUTHOR]` reads the related objects the inner query reads; `queryDeep()` of the outer query does not change
-  it, and an outer query whose only entity values come from sources rejects `queryDeep()`. Select it with
+  it. `queryDeep()` on a column selection throws `IllegalArgumentException` when no table is among its values, as
+  in scalar rows, `all()` lists or entity values that come only from sources. Select it with
   `source[AUTHOR].nullable()` where an outer join can leave the source NULL, and read an entity that the inner query
   selects with `.nullable()` as `source[BOOK.nullable()]`. Keep the instance to read it from a `SelectedRow`, as for
   `source[expression]`. `SELECT FROM authorTotals` keeps the inner row type (`Row2<Author, Long>`); select only the
@@ -371,7 +372,8 @@ val names = ((SELECT COLUMN AUTHOR.NAME FROM AUTHOR) UNION (SELECT COLUMN AUTHOR
 - Arms with entity values select an entity of the same table in the same place (an aliased occurrence counts), or the
   compound is rejected; with `UNION`/`UNION_ALL`, select it `.nullable()` in the left arm when the right arm's is.
   `queryDeep()` of the compound deepens every arm; an entity of a derived source keeps its source's depth, so arms of
-  different depths fail with SQLite's column-count error.
+  different depths fail with SQLite's column-count error, or, when their column counts happen to match, are
+  rejected when the compound is compiled.
 - Prefer `UNION_ALL` when duplicates are impossible or wanted; `UNION` sorts to remove them.
 
 ## Terminals

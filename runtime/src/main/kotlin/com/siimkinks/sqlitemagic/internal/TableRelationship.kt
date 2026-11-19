@@ -97,6 +97,8 @@ class RelatedEntities internal constructor(
     )
   }
 
+  internal val totalWidth get() = width + joined.sumOf(RelatedEntities::width)
+
   internal fun readIfPresent(statement: SQLiteStatement, startIndex: Int): Any? {
     for (index in startIndex..<startIndex + width) {
       if (!statement.isNull(index)) {
@@ -108,10 +110,6 @@ class RelatedEntities internal constructor(
       }
     }
     return null
-  }
-
-  internal fun setChild(relationship: Int, child: RelatedEntities) {
-    children[relationship] = child
   }
 
   internal fun shifted(offset: Int): RelatedEntities = RelatedEntities(

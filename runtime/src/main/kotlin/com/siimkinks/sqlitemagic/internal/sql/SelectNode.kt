@@ -8,6 +8,7 @@ import com.siimkinks.sqlitemagic.RowSelection
 import com.siimkinks.sqlitemagic.Selection
 import com.siimkinks.sqlitemagic.Source
 import com.siimkinks.sqlitemagic.Table
+import com.siimkinks.sqlitemagic.entity
 import com.siimkinks.sqlitemagic.occurrence
 
 internal data class SelectNode<out T, out S : Selection<T>>(
@@ -134,6 +135,13 @@ internal data class SelectNode<out T, out S : Selection<T>>(
     )
   }
 
+  val deepensEntities: Boolean
+    get() = when (selection) {
+      is EntitySelection<*> -> true
+      is RowSelection<*, *> -> selection.deepensEntities
+      else -> false
+    } || compound?.arms?.any { it.select.deepensEntities } == true
+
   fun withJoin(kind: JoinKind, source: Source) = copy(
     joins = joins + JoinNode(
       kind = kind,
@@ -159,7 +167,13 @@ internal class Compound(
 ) {
   fun render(context: SqlRenderingContext) {
     first.render(context)
-    arms.forEach { it.render(context) }
+    val firstColumns = context.entityColumns(first.selection)
+    arms.forEach { arm ->
+      arm.render(
+        context = context,
+        firstColumns = firstColumns
+      )
+    }
   }
 
   fun withFirstSelection(selection: Selection<*>): Compound = Compound(
@@ -172,7 +186,7 @@ internal class CompoundArm(
   val operator: CompoundOperator,
   val select: SelectNode<*, *>
 ) {
-  fun render(context: SqlRenderingContext) {
+  fun render(context: SqlRenderingContext, firstColumns: EntityColumns?) {
     context.sql.append(operator.sql)
     context.renderArm {
       when {
@@ -184,8 +198,44 @@ internal class CompoundArm(
           context.markFromEnd()
         }
       }
+      if (firstColumns != null) {
+        val armColumns = context.entityColumns(select.selection)
+        require(
+          armColumns == null ||
+              firstColumns.width != armColumns.width ||
+              firstColumns.spans == armColumns.spans
+        ) {
+          "Entity values take columns ${firstColumns.described} in the left SELECT but ${armColumns?.described} in " +
+              "the connected SELECT; read each entity to the same depth in both, as queryDeep() on the compound does"
+        }
+      }
     }
   }
+}
+
+internal class EntityColumns(
+  val spans: List<IntRange>,
+  val width: Int
+) {
+  val described get() = spans.joinToString { "${it.first + 1}–${it.last + 1}" }
+}
+
+private fun SqlRenderingContext.entityColumns(selection: Selection<*>) = when (selection) {
+  is EntitySelection<*> -> relatedEntities?.totalWidth?.let { width ->
+    EntityColumns(
+      spans = listOf(0..<width),
+      width = width
+    )
+  }
+  is RowSelection<*, *> -> valueLayout?.let { layout ->
+    EntityColumns(
+      spans = selection.selectedValues.indices
+        .filter { slot -> selection.selectedValues[slot].entity != null }
+        .map(layout::span),
+      width = layout.width
+    )
+  }
+  else -> null
 }
 
 private val SelectNode<*, *>.rendersAsArm

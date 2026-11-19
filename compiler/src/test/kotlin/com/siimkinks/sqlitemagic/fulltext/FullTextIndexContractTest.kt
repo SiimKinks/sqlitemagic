@@ -88,6 +88,37 @@ internal class FullTextIndexContractTest {
   }
 
   @Test
+  fun `clears an FTS4 index by dropping and creating it again`() {
+    compile(
+      """
+        @Table
+        @FullTextIndex(version = FullTextVersion.FTS4)
+        data class Letter(
+          @Id val id: Long? = null,
+          @FullText val subject: String
+        )
+      """
+    )
+      .isOk()
+      .withGeneratedSource(MANAGER) { generatedSource ->
+        generatedSource
+          .functionBody("clearTables")
+          .unwrapped()
+          .assertContainsInOrder(
+            """DROP TRIGGER IF EXISTS main.\"letter_fts_ai\"""",
+            """DROP TRIGGER IF EXISTS main.\"letter_fts_ad\"""",
+            """DROP TRIGGER IF EXISTS main.\"letter_fts_au\"""",
+            """DELETE FROM main.\"letter\"""",
+            """DROP TABLE IF EXISTS main.\"letter_fts\"""",
+            """CREATE VIRTUAL TABLE IF NOT EXISTS main.\"letter_fts\" USING fts4(\"subject\")""",
+            """CREATE TRIGGER IF NOT EXISTS main.\"letter_fts_ai\"""",
+            """CREATE TRIGGER IF NOT EXISTS main.\"letter_fts_ad\"""",
+            """CREATE TRIGGER IF NOT EXISTS main.\"letter_fts_au\""""
+          )
+      }
+  }
+
+  @Test
   fun `turns on recursive triggers only for a schema with a full-text index`() {
     compile(
       """
@@ -147,22 +178,25 @@ internal class FullTextIndexContractTest {
         "letter_fts" to FullTextIndexStructure(
           name = "letter_fts",
           forTable = "letter",
-          tableSql = """CREATE VIRTUAL TABLE IF NOT EXISTS main."letter_fts" USING fts4("subject", """ +
-              """content='letter')""",
+          tableSql = """CREATE VIRTUAL TABLE IF NOT EXISTS main."letter_fts" USING fts4("subject")""",
           triggers = mapOf(
             "letter_fts_ai" to """CREATE TRIGGER IF NOT EXISTS main."letter_fts_ai" AFTER INSERT ON "letter" """ +
                 """BEGIN INSERT INTO "letter_fts"(docid, "subject") VALUES (new."id", new."subject"); END""",
-            "letter_fts_bd" to """CREATE TRIGGER IF NOT EXISTS main."letter_fts_bd" BEFORE DELETE ON "letter" """ +
+            "letter_fts_ad" to """CREATE TRIGGER IF NOT EXISTS main."letter_fts_ad" AFTER DELETE ON "letter" """ +
                 """BEGIN DELETE FROM "letter_fts" WHERE docid = old."id"; END""",
-            "letter_fts_bu" to """CREATE TRIGGER IF NOT EXISTS main."letter_fts_bu" BEFORE UPDATE OF "id", """ +
-                """"subject", rowid, oid, _rowid_ ON "letter" WHEN old."id" IS NOT new."id" OR old."subject" IS """ +
-                """NOT new."subject" BEGIN DELETE FROM "letter_fts" WHERE docid = old."id"; END""",
             "letter_fts_au" to """CREATE TRIGGER IF NOT EXISTS main."letter_fts_au" AFTER UPDATE OF "id", """ +
                 """"subject", rowid, oid, _rowid_ ON "letter" WHEN old."id" IS NOT new."id" OR old."subject" IS """ +
-                """NOT new."subject" BEGIN INSERT INTO "letter_fts"(docid, "subject") VALUES (new."id", """ +
-                """new."subject"); END"""
+                """NOT new."subject" BEGIN DELETE FROM "letter_fts" WHERE docid = old."id"; INSERT INTO """ +
+                """"letter_fts"(docid, "subject") VALUES (new."id", new."subject"); END"""
           ),
-          shadowTables = listOf("letter_fts_segments", "letter_fts_segdir", "letter_fts_docsize", "letter_fts_stat")
+          shadowTables = listOf(
+            "letter_fts_content",
+            "letter_fts_segments",
+            "letter_fts_segdir",
+            "letter_fts_docsize",
+            "letter_fts_stat"
+          ),
+          fillSql = """INSERT INTO main."letter_fts"(docid, "subject") SELECT "id", "subject" FROM main."letter""""
         )
       )
     )
@@ -497,20 +531,17 @@ internal class FullTextIndexContractTest {
           data class Doc(@Id val id: Long? = null, @FullText val title: String, @FullText val body: String)
         """,
         listOf(
-          """CREATE VIRTUAL TABLE IF NOT EXISTS main.\"doc_fts\" USING fts4(\"title\", \"body\", content='doc')""",
+          """CREATE VIRTUAL TABLE IF NOT EXISTS main.\"doc_fts\" USING fts4(\"title\", \"body\")""",
           """CREATE TRIGGER IF NOT EXISTS main.\"doc_fts_ai\" AFTER INSERT ON \"doc\" BEGIN """ +
               """INSERT INTO \"doc_fts\"(docid, \"title\", \"body\") VALUES (new.\"id\", new.\"title\", """ +
               """new.\"body\"); END""",
-          """CREATE TRIGGER IF NOT EXISTS main.\"doc_fts_bd\" BEFORE DELETE ON \"doc\" BEGIN """ +
+          """CREATE TRIGGER IF NOT EXISTS main.\"doc_fts_ad\" AFTER DELETE ON \"doc\" BEGIN """ +
               """DELETE FROM \"doc_fts\" WHERE docid = old.\"id\"; END""",
-          """CREATE TRIGGER IF NOT EXISTS main.\"doc_fts_bu\" BEFORE UPDATE OF \"id\", \"title\", \"body\", """ +
-              """rowid, oid, _rowid_ ON \"doc\" WHEN old.\"id\" IS NOT new.\"id\" OR old.\"title\" IS NOT """ +
-              """new.\"title\" OR old.\"body\" IS NOT new.\"body\" BEGIN DELETE FROM \"doc_fts\" WHERE """ +
-              """docid = old.\"id\"; END""",
           """CREATE TRIGGER IF NOT EXISTS main.\"doc_fts_au\" AFTER UPDATE OF \"id\", \"title\", \"body\", """ +
               """rowid, oid, _rowid_ ON \"doc\" WHEN old.\"id\" IS NOT new.\"id\" OR old.\"title\" IS NOT """ +
-              """new.\"title\" OR old.\"body\" IS NOT new.\"body\" BEGIN INSERT INTO \"doc_fts\"(docid, """ +
-              """\"title\", \"body\") VALUES (new.\"id\", new.\"title\", new.\"body\"); END"""
+              """new.\"title\" OR old.\"body\" IS NOT new.\"body\" BEGIN DELETE FROM \"doc_fts\" WHERE """ +
+              """docid = old.\"id\"; INSERT INTO \"doc_fts\"(docid, \"title\", \"body\") VALUES """ +
+              """(new.\"id\", new.\"title\", new.\"body\"); END"""
         )
       ),
       Arguments.of(
@@ -521,16 +552,14 @@ internal class FullTextIndexContractTest {
           data class Doc(@Id val id: String, @RowId val rowId: Long? = null, @FullText val title: String)
         """,
         listOf(
-          """CREATE VIRTUAL TABLE IF NOT EXISTS main.\"doc_fts\" USING fts4(\"title\", content='doc')""",
+          """CREATE VIRTUAL TABLE IF NOT EXISTS main.\"doc_fts\" USING fts4(\"title\")""",
           """AFTER INSERT ON \"doc\" BEGIN INSERT INTO \"doc_fts\"(docid, \"title\") VALUES (new.\"row_id\", """ +
               """new.\"title\"); END""",
-          """BEFORE DELETE ON \"doc\" BEGIN DELETE FROM \"doc_fts\" WHERE docid = old.\"row_id\"; END""",
-          """BEFORE UPDATE OF \"row_id\", \"title\", rowid, oid, _rowid_ ON \"doc\" WHEN """ +
-              """old.\"row_id\" IS NOT new.\"row_id\" OR old.\"title\" IS NOT new.\"title\" BEGIN DELETE FROM """ +
-              """\"doc_fts\" WHERE docid = old.\"row_id\"; END""",
+          """AFTER DELETE ON \"doc\" BEGIN DELETE FROM \"doc_fts\" WHERE docid = old.\"row_id\"; END""",
           """AFTER UPDATE OF \"row_id\", \"title\", rowid, oid, _rowid_ ON \"doc\" WHEN """ +
-              """old.\"row_id\" IS NOT new.\"row_id\" OR old.\"title\" IS NOT new.\"title\" BEGIN INSERT INTO """ +
-              """\"doc_fts\"(docid, \"title\") VALUES (new.\"row_id\", new.\"title\"); END"""
+              """old.\"row_id\" IS NOT new.\"row_id\" OR old.\"title\" IS NOT new.\"title\" BEGIN DELETE FROM """ +
+              """\"doc_fts\" WHERE docid = old.\"row_id\"; INSERT INTO \"doc_fts\"(docid, \"title\") VALUES """ +
+              """(new.\"row_id\", new.\"title\"); END"""
         )
       ),
       Arguments.of(
@@ -552,13 +581,13 @@ internal class FullTextIndexContractTest {
           )
         """,
         listOf(
-          """USING fts4(\"tag\", \"title\", content='doc', languageid=\"language\", notindexed=\"tag\", """ +
+          """USING fts4(\"tag\", \"title\", languageid=\"language\", notindexed=\"tag\", """ +
               """matchinfo=fts3, order=DESC, tokenize=unicode61 \"remove_diacritics=2\", prefix=\"2,3\")""",
           """INSERT INTO \"doc_fts\"(docid, \"tag\", \"title\", \"language\") VALUES (new.\"id\", """ +
               """new.\"tag\", new.\"title\", new.\"language\")""",
-          """BEFORE UPDATE OF \"id\", \"title\", \"language\", rowid, oid, _rowid_ ON \"doc\" WHEN """ +
-              """old.\"id\" IS NOT new.\"id\" OR old.\"title\" IS NOT new.\"title\" OR """ +
-              """old.\"language\" IS NOT new.\"language\" BEGIN"""
+          """AFTER UPDATE OF \"id\", \"tag\", \"title\", \"language\", rowid, oid, _rowid_ ON \"doc\" WHEN """ +
+              """old.\"id\" IS NOT new.\"id\" OR old.\"tag\" IS NOT new.\"tag\" OR old.\"title\" IS NOT """ +
+              """new.\"title\" OR old.\"language\" IS NOT new.\"language\" BEGIN"""
         )
       ),
       Arguments.of(
@@ -572,7 +601,7 @@ internal class FullTextIndexContractTest {
             @FullText(role = FullTextRole.LANGUAGE_ID) val language: String
           )
         """,
-        listOf("""USING fts4(\"title\", content='doc', languageid=\"language\")""")
+        listOf("""USING fts4(\"title\", languageid=\"language\")""")
       ),
       Arguments.of(
         "property persisted by @FullText alone",
@@ -664,16 +693,7 @@ internal class FullTextIndexContractTest {
           @FullTextIndex(version = FullTextVersion.FTS4)
           data class Doc(@Id val id: Long? = null, @FullText @Column("RowId") val title: String)
         """,
-        "Column name 'RowId' hides the row ID that FTS4 index 'doc_fts' reads: Doc.title"
-      ),
-      Arguments.of(
-        "FTS4 table column named rowid outside the index",
-        """
-          @Table
-          @FullTextIndex(version = FullTextVersion.FTS4)
-          data class Doc(@Id val id: Long? = null, @FullText val title: String, @Column("rowid") val legacy: String)
-        """,
-        "Column name 'rowid' hides the row ID that FTS4 index 'doc_fts' reads: Doc.legacy"
+        "Column name 'RowId' is reserved in FTS4 index 'doc_fts': Doc.title"
       ),
       Arguments.of(
         "FTS4 column named docid",

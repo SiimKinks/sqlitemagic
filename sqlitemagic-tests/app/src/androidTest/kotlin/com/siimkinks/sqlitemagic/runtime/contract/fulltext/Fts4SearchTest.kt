@@ -1,9 +1,10 @@
 package com.siimkinks.sqlitemagic.runtime.contract.fulltext
 
+import android.database.sqlite.SQLiteDatabase.CONFLICT_FAIL
+import android.database.sqlite.SQLiteDatabase.CONFLICT_IGNORE
 import android.database.sqlite.SQLiteDatabase.CONFLICT_REPLACE
 import com.google.common.truth.Truth.assertThat
 import com.siimkinks.sqlitemagic.AND
-import com.siimkinks.sqlitemagic.IS
 import com.siimkinks.sqlitemagic.LetterFtsTable.Companion.LETTER_FTS
 import com.siimkinks.sqlitemagic.LetterTable.Companion.LETTER
 import com.siimkinks.sqlitemagic.MATCHINFO
@@ -15,6 +16,7 @@ import com.siimkinks.sqlitemagic.Row2
 import com.siimkinks.sqlitemagic.Row3
 import com.siimkinks.sqlitemagic.SELECT
 import com.siimkinks.sqlitemagic.SNIPPET
+import com.siimkinks.sqlitemagic.UPDATE
 import com.siimkinks.sqlitemagic.delete
 import com.siimkinks.sqlitemagic.entity.EntityInsertResult
 import com.siimkinks.sqlitemagic.fixture.model.fulltext.Letter
@@ -182,7 +184,68 @@ internal class Fts4SearchTest {
     ).isEqualTo(listOf(Row2(1L, "spice")))
     assertThat(
       listOf(LETTER_FTS.integrityCheck(), LETTER_FTS.rebuild(), LETTER_FTS.optimize()).map { it.execute() }
-    ).isEqualTo(listOf(1, 1, 1))
+    ).isEqualTo(listOf(1, 2, 1))
+  }
+
+  @Test
+  fun updatesThatAConflictSkipsOrStopsLeaveTheIndexInStep() {
+    Memos
+      .insert(
+        listOf(
+          Memo(
+            code = "a",
+            title = "Trip",
+            text = "Cross the desert"
+          ),
+          Memo(
+            code = "b",
+            title = "Groceries",
+            text = "Buy dates"
+          )
+        )
+      )
+      .execute()
+    fun renamed(conflictAlgorithm: Int) = UPDATE
+      .OR(conflictAlgorithm)
+      .TABLE(MEMO)
+      .SET(MEMO.TITLE, "Groceries")
+      .SET(MEMO.TEXT, "Sail the sea")
+      .WHERE(MEMO.CODE IS "a")
+
+    val results = listOf(
+      Memo(
+        code = "a",
+        title = "Groceries",
+        text = "Sail the sea"
+      )
+        .update()
+        .conflictAlgorithm(CONFLICT_IGNORE)
+        .execute(),
+      renamed(CONFLICT_IGNORE).execute(),
+      runCatching { renamed(CONFLICT_FAIL).execute() }.isFailure
+    )
+
+    assertThat(
+      Triple(
+        results,
+        listOf("desert", "sea").map { query ->
+          SELECT
+            .COLUMN(MEMO_FTS.ROWID)
+            .FROM(MEMO_FTS)
+            .WHERE(MEMO_FTS MATCH query)
+            .execute()
+        },
+        MEMO_FTS
+          .integrityCheck()
+          .execute()
+      )
+    ).isEqualTo(
+      Triple(
+        listOf(false, 0, true),
+        listOf(listOf(1L), emptyList()),
+        1
+      )
+    )
   }
 
   @Test

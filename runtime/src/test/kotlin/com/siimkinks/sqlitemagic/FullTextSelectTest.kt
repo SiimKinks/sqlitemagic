@@ -422,7 +422,12 @@ private class NoteFts4Table(alias: String? = null) : Fts4Table(
   name = "note_fts4",
   alias = alias,
   contentTable = NOTE,
-  contentRowIdColumnName = "row_id"
+  contentRowIdColumnName = "row_id",
+  clearSql = listOf(
+    """DROP TABLE IF EXISTS main."note_fts4"""",
+    """CREATE VIRTUAL TABLE IF NOT EXISTS main."note_fts4" USING fts4("body")"""
+  ),
+  fillSql = """INSERT INTO main."note_fts4"(docid, "body") SELECT "row_id", "body" FROM main."note""""
 ) {
   val ROWID = fullTextRowId(fieldTable)
 
@@ -436,6 +441,6 @@ private fun noteDatabase() = TestDatabase(
   "INSERT INTO note VALUES ('b', 10, 'kotlin search'), ('a', 20, 'room guide'), ('c', 30, 'kotlin notes')",
   "CREATE VIRTUAL TABLE note_fts5 USING fts5(body, content='note', content_rowid='row_id')",
   "INSERT INTO note_fts5(note_fts5) VALUES ('rebuild')",
-  "CREATE VIRTUAL TABLE note_fts4 USING fts4(body, content='note')",
-  "INSERT INTO note_fts4(note_fts4) VALUES ('rebuild')"
+  "CREATE VIRTUAL TABLE note_fts4 USING fts4(body)",
+  "INSERT INTO note_fts4(docid, body) SELECT row_id, body FROM note"
 )

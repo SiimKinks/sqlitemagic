@@ -7,32 +7,29 @@
 
 Simple yet powerful SQLite database layer for Android that makes database handling feel like magic.
 
-#### Overview:
 * Simple, intuitive & **typesafe API**
 * SQL-first [Kotlin](https://kotlinlang.org/) DSL – queries read like SQL while the compiler checks clause order,
   column types and nullability
 * Minimal setup needed
+* Built for Kotlin – data classes, generated extension functions and typed result rows
+* Compile time code generation with [KSP](https://kotlinlang.org/docs/ksp-overview.html) – **no reflection**
 * Your choice of SQLite engine: the device's SQLite, or a recent SQLite bundled with the app for the same SQL on every
   Android version
-* Kotlin coroutines and RxJava support for observed queries and one-shot operations, through the
-  `sqlitemagic-coroutines`, `sqlitemagic-rxjava3` and `sqlitemagic-rxjava2` adapters
-* Built for Kotlin – data classes, generated extension functions and typed result rows
+* Kotlin coroutines and RxJava support for observed queries and one-shot operations
 * Full support for complex columns – related objects and embedded values
 * Support for SQLite views defined with the same DSL
 * Full-text search with SQLite FTS5 and FTS4 – indexes declared on tables, kept in sync and migrated, searched, ranked
   and highlighted with the DSL
 * Persist any third party object with fully customizable object transformers
 * Automatic schema migrations with generated migration test support
-* **No reflection**
-* Compile time code generation with [KSP](https://kotlinlang.org/docs/ksp-overview.html)
 * Probably the fastest library for Android SQLite database operations *(without memory caching)*
 
-Getting Started
------------------
+## Getting Started
 
-SqliteMagic 3.x is built for Kotlin Android projects that use KSP. It supports Android API 24 and newer.
+SqliteMagic 3.x is built for Kotlin Android projects that use KSP. It supports Android API 24 and newer. Its artifacts
+are built with Kotlin 2.4, so consuming modules need a Kotlin compiler that reads its metadata: Kotlin 2.3 or newer.
 
-#### Publish SqliteMagic:
+### Build From Source
 
 SqliteMagic 3.x is not published to a public repository. Build a release from source and install it into your local
 Maven repository. Check out the release's tag, because the branch already carries the next `-SNAPSHOT` version:
@@ -42,12 +39,11 @@ git checkout <latest version>
 ./gradlew publishToMavenLocal
 ```
 
-This publishes the Gradle plugin, runtime, annotations, KSP processor, migration testing, framework driver, coroutines,
-RxJava 3 and RxJava 2 artifacts as `com.siimkinks.sqlitemagic:*:<latest version>`. To share builds through a
-self-hosted Maven repository such as Artifactory or Nexus, add it to `publishing.repositories` in
-[buildsystem/maven-push.gradle](buildsystem/maven-push.gradle) and run `./gradlew publish`.
+To share builds through a self-hosted Maven repository such as Artifactory or Nexus, add it to
+`publishing.repositories` in [buildsystem/maven-push.gradle](buildsystem/maven-push.gradle) and run
+`./gradlew publish`.
 
-#### Add SqliteMagic to Project:
+### Add SqliteMagic to Project
 
 In `settings.gradle.kts`:
 
@@ -80,41 +76,21 @@ plugins {
 }
 
 dependencies {
-  // the SQLite driver; see Choose a SQLite Driver. The framework driver uses the same version as the plugin
+  // the SQLite driver; see Choose a SQLite Driver
   implementation("com.siimkinks.sqlitemagic:sqlitemagic-framework-driver:<latest version>")
-  // optional: the RxJava 3 observe() APIs; use the same version as the plugin
+  // optional: the RxJava 3 or RxJava 2 APIs
   implementation("com.siimkinks.sqlitemagic:sqlitemagic-rxjava3:<latest version>")
-  // optional: the RxJava 2 observe() APIs; use the same version as the plugin
   implementation("com.siimkinks.sqlitemagic:sqlitemagic-rxjava2:<latest version>")
-  // optional: the coroutine Flow and suspend APIs; use the same version as the plugin
+  // optional: the coroutine Flow and suspend APIs
   implementation("com.siimkinks.sqlitemagic:sqlitemagic-coroutines:<latest version>")
 }
 ```
 
-The plugin adds the matching runtime, annotations and KSP processor dependencies. Optional configuration, with the
-defaults:
+The plugin adds the matching runtime, annotations and KSP processor dependencies. Every `com.siimkinks.sqlitemagic`
+artifact uses the plugin's version. The `sqlitemagic { }` extension is optional; see its
+[options](.agents/skills/sqlitemagic/references/setup.md#plugin-options).
 
-```kotlin
-sqlitemagic {
-  // add the runtime, annotations and KSP processor dependencies
-  configureAutomatically = true
-  // generate public instead of internal operation extensions for public models
-  publicKotlinExtensionFunctions = false
-  // migrate debug databases automatically when the schema changes
-  migrateDebugDatabase = true
-  // in a library module with models: directory of the application module that owns the database,
-  // relative to the root project, such as "app"
-  mainModulePath = null
-  migrationTesting {
-    // generate JVM migration test support in application modules
-    enabled = true
-    // release variant whose schema history the tests validate; null selects the first release variant
-    releaseVariant = null
-  }
-}
-```
-
-#### Initialize Library:
+### Initialize Library
 
 ```kotlin
 import com.siimkinks.sqlitemagic.SqliteMagic
@@ -136,206 +112,38 @@ class App : Application() {
   }
 }
 ```
+
 **Note**: `SqliteMagicDatabase` is generated. Any place with a reference to Application context is ok to use for
 initialization, but it must happen before a database is accessed. Initialization only configures the default
-connection. The database is opened on first access, which creates the schema or runs migration scripts as needed - no
-other hidden runtime performance costs.
+connection. The database is opened on first access, which creates the schema or runs migration scripts as needed.
 
-#### Choose a SQLite Driver:
+### Choose a SQLite Driver
 
-The driver decides which SQLite runs the database. There is no default; pick one:
+The driver decides which SQLite runs the database. There is no default; pass one to `driver(...)`:
 
-<table style="width:100%; border-collapse: collapse;" >
-<tr>
-<th>Device SQLite</th>
-<th>Bundled SQLite</th>
-</tr>
-<tr style="background: none">
-<td style="padding:0; margin:0; border:none; width:50%;">
+| | Device SQLite | Bundled SQLite |
+| --- | --- | --- |
+| Dependency | `com.siimkinks.sqlitemagic:sqlitemagic-framework-driver` | `androidx.sqlite:sqlite-bundled` |
+| Class | `com.siimkinks.sqlitemagic.framework.FrameworkSQLiteDriver` | `androidx.sqlite.driver.bundled.BundledSQLiteDriver` |
+| SQLite version | the device's: 3.9 on API 24, newer with Android | recent, the same on every device |
+| App size | nothing added | about 1.3 MB per ABI |
+| Errors | Android's typed `SQLiteException` subclasses | `SQLException` with SQLite's result code in the message |
+| Text | ICU case folding, `LOCALIZED` and `UNICODE` collations | ASCII case folding, no Android collations |
+| Database Inspector | yes | no |
+| Full-text search | FTS4 | FTS5 and FTS4 |
 
-```kotlin
-// build.gradle.kts; same version as the plugin
-implementation("com.siimkinks.sqlitemagic:sqlitemagic-framework-driver:<latest version>")
+The library does not check SQLite versions: SQL that the device's SQLite does not understand fails there with a syntax
+error. With the bundled driver, never open the database file through Android's own database APIs while the app runs:
+two SQLite libraries in one process do not see each other's locks and can corrupt the file.
 
-// Application.kt
-import com.siimkinks.sqlitemagic.framework.FrameworkSQLiteDriver
+The other limits of each driver are listed under
+[Choose a driver](.agents/skills/sqlitemagic/references/setup.md#choose-a-driver), and the connection pool, its
+defaults and its tuning under
+[Connections and their defaults](.agents/skills/sqlitemagic/references/setup.md#connections-and-their-defaults).
 
-// Application.onCreate
-SqliteMagic.builder(this)
-  .database(SqliteMagicDatabase())
-  .driver(FrameworkSQLiteDriver())
-  .openDefaultConnection()
-```
+## Usage
 
-</td>
-<td style="padding:0; margin:0; border:none; width:50%;">
-
-```kotlin
-// build.gradle.kts
-implementation("androidx.sqlite:sqlite-bundled:<sqlite version>")
-
-// Application.kt
-import androidx.sqlite.driver.bundled.BundledSQLiteDriver
-
-// Application.onCreate
-SqliteMagic.builder(this)
-  .database(SqliteMagicDatabase())
-  .driver(BundledSQLiteDriver())
-  .openDefaultConnection()
-```
-
-</td>
-</tr>
-</table>
-
-`FrameworkSQLiteDriver` runs the SQLite of the device, whose version follows the Android version (SQLite 3.9 on
-API 24). It keeps Android's typed `SQLiteException` subclasses, the `LOCALIZED` and `UNICODE` collations, ICU case
-folding in `lower`, `upper` and `LIKE`, and the Database Inspector, and it adds nothing to the app size. Three limits
-of Android's database APIs remain:
-
-* a row larger than a cursor window, about 2 MB, cannot be read and fails with `SQLiteException`;
-* a statement with a `RETURNING` clause (API 34 and later) runs again for each further cursor window, about 2 MB, of
-  rows it returns, so keep its result small or use the bundled driver;
-* each connection takes the app's default locale when it opens. After the locale changes while the app runs, a
-  connection that opens later sorts `LOCALIZED` text by the new locale and the earlier ones by the old locale until
-  the app restarts.
-
-`BundledSQLiteDriver` ships a recent SQLite inside the app, so newer SQL features work on every supported Android
-version. It costs:
-
-* about 1.3 MB per ABI in the installed app;
-* no Database Inspector, and no ICU case folding or Android collations;
-* errors are plain `SQLException`s with SQLite's result code in the message, instead of typed subclasses;
-* once the schema uses SQL the device's SQLite does not understand, only a SQLite that does can open the database.
-
-Full-text indexes are FTS5 by default, which only the bundled driver has; apps on the framework driver declare FTS4
-indexes, which both drivers support ([Full-Text Search](#full-text-search)).
-
-Never open the database file through Android's own database APIs while the app runs it on a bundled driver: two SQLite
-libraries in one process do not see each other's locks and can corrupt the file. A corrupt database fails with an
-exception and its files are kept.
-
-File databases use one writer and up to four reader connections that open when needed, in WAL journal mode. Reads run
-alongside writes and see the last committed data; the thread that runs a transaction reads its own changes. Reads of
-temporary tables and views and raw SELECTs that declare no tables run on the writer, so raw SQL such as `RETURNING` or
-`last_insert_rowid()` sees the connection that changes the data. A statement waits at most 30 seconds for a connection
-that other threads hold, then fails with `SQLException`. A connection waits up to 3 seconds for a file lock held by
-another connection or process (`PRAGMA busy_timeout = 3000`). In WAL mode, connections run with
-`PRAGMA synchronous = NORMAL`, so a transaction committed just before a power loss or system crash can be rolled back,
-while the database stays intact. The builder tunes this, and `configureConnection` runs after these defaults:
-
-```kotlin
-import androidx.sqlite.execSQL
-
-SqliteMagic.builder(this)
-  .database(SqliteMagicDatabase())
-  .driver(BundledSQLiteDriver())
-  .readerConnections(2) // 0 runs every statement on one connection
-  .connectionPoolTimeout(10.seconds) // Duration.INFINITE waits without a limit
-  .configureConnection { connection -> // runs on every connection that opens
-    connection.execSQL("PRAGMA synchronous = FULL")
-  }
-  .openDefaultConnection()
-```
-
-#### Observe With RxJava:
-
-The reactive APIs come from the `sqlitemagic-rxjava3` adapter for RxJava 3 or the `sqlitemagic-rxjava2` adapter for
-RxJava 2, whose version must be the same as the plugin version. Both adapters have the same API. Import `observe` (and
-`run` for one-shot queries) from `com.siimkinks.sqlitemagic.rxjava3` or `com.siimkinks.sqlitemagic.rxjava2`; the
-examples use RxJava 3. A file that uses both adapters imports one of them with an alias. Observed queries emit on
-`Schedulers.io()` unless the connection is configured with another scheduler:
-
-```kotlin
-import com.siimkinks.sqlitemagic.rxjava3.scheduleRxQueriesOn
-
-SqliteMagic.builder(this)
-  .database(SqliteMagicDatabase())
-  .driver(FrameworkSQLiteDriver())
-  .scheduleRxQueriesOn(Schedulers.computation())
-  .openDefaultConnection()
-```
-
-Changes made while an observed query's notification is being processed are combined into one further notification.
-
-#### Observe With Coroutines:
-
-The coroutine APIs come from the `sqlitemagic-coroutines` adapter, whose version must be the same as the plugin version,
-in `com.siimkinks.sqlitemagic.coroutines`. `observe()` returns a cold `Flow` of the query that emits again whenever a
-queried table changes; changes made while an emission is being processed are combined into one further emission. Its
-`runQuery` operators run the query. One-shot work uses suspend functions: `runQueryOnce()` on an observed query,
-`Query.run()`, and `await()` on entity operations, INSERT, UPDATE and DELETE statements and raw SELECTs that do not
-declare the tables they read.
-
-```kotlin
-import com.siimkinks.sqlitemagic.coroutines.await
-import com.siimkinks.sqlitemagic.coroutines.observe
-import com.siimkinks.sqlitemagic.coroutines.runQuery
-
-val authors: Flow<List<Author>> = (SELECT FROM AUTHOR)
-  .observe()
-  .runQuery()
-
-suspend fun save(author: Author): EntityInsertResult = author
-  .insert()
-  .await()
-```
-
-The database work runs on `Dispatchers.IO` unless the connection is configured with another dispatcher:
-
-```kotlin
-import com.siimkinks.sqlitemagic.coroutines.dispatchCoroutineQueriesOn
-
-SqliteMagic.builder(this)
-  .database(SqliteMagicDatabase())
-  .driver(FrameworkSQLiteDriver())
-  .dispatchCoroutineQueriesOn(Dispatchers.Default)
-  .openDefaultConnection()
-```
-
-Applied directly to `observe()`, the `runQuery` operators also wait for changes on that dispatcher, so a change resumes
-the collector only to deliver the result. The first change made while the collector processes a result starts the next
-query at once, and later changes are combined into one further query, so the earlier of the two results may miss them.
-
-Run suspending work in one transaction with `withTransaction`. It commits when the block and the coroutines it launched
-complete, and rolls back when they fail or are cancelled. A cancellation that arrives while the transaction commits
-still throws `CancellationException`, although the transaction committed. Every call of the connection inside it takes
-part in it, on whatever thread it runs, and one-shot queries read the transaction's own changes:
-
-```kotlin
-import com.siimkinks.sqlitemagic.coroutines.await
-import com.siimkinks.sqlitemagic.coroutines.observe
-import com.siimkinks.sqlitemagic.coroutines.runQueryOnce
-import com.siimkinks.sqlitemagic.coroutines.withTransaction
-
-suspend fun renameAuthor(id: Long, lastName: String) = withTransaction {
-  val author = (SELECT FROM AUTHOR WHERE (AUTHOR.ID IS id))
-    .takeFirst()
-    .observe()
-    .runQueryOnce()
-  author
-    ?.copy(lastName = lastName)
-    ?.update()
-    ?.await()
-}
-```
-
-Observers of the changed tables are notified after the commit. Collecting an observed query inside the transaction fails
-with `IllegalStateException`. Do not call `runBlocking` inside the block: its coroutine runs outside the transaction,
-so its calls wait for the transaction to end and fail after the pool timeout, and given the block's context it can wait
-forever for a dispatcher thread that it blocks. Code in the block that cannot suspend uses the blocking calls, such as
-`execute()`, which take part in the transaction. A `withTransaction` inside another transaction,
-including one that the calling thread started with `newTransaction()`, runs as its nested transaction; that thread
-waits for it with `runBlocking`. A long transaction can let waiting writers run with `yieldIfContended()`, which
-commits the work so far and continues; it does nothing in a nested transaction. Coroutine calls that wait for the writer
-connection suspend instead of blocking a dispatcher thread.
-
-A transaction started with `newTransaction()` or `inTransaction {}` belongs to the thread that started it, so a suspend
-call that the dispatcher runs on another thread does not take part in it, and the `inTransaction {}` block cannot
-suspend. Reading a query on a thread with such a transaction, whether by collecting it, `runQueryOnce()`, `Query.run()`
-or a raw SELECT's `await()`, fails with `IllegalStateException`.
-
-#### Define Database:
+### Define Database
 
 _Note that there is no need to extend or implement any base classes or interfaces_
 
@@ -357,36 +165,13 @@ data class Book(
 )
 ```
 
-**Database operation builder methods are generated during compile time by KSP as Kotlin
-[extension functions](https://kotlinlang.org/docs/extensions.html) on objects with `@Table` annotation, with bulk
-operations in a generated object named after the model (`Authors`). Typed tables and columns for the DSL (`AUTHOR`,
-`AUTHOR.FIRST_NAME`) are generated alongside them. The schema follows the Kotlin declarations: columns of non-null
-properties are `NOT NULL`, so selected values keep their property types. Generated code is plain Kotlin, so one can
-still see human readable code during debugging - just press "step into" when a generated method is encountered.**
+KSP generates the database operations as Kotlin [extension functions](https://kotlinlang.org/docs/extensions.html) on
+`@Table` classes, bulk operations in an object named after the model (`Authors`), and the typed tables and columns of
+the DSL (`AUTHOR`, `AUTHOR.FIRST_NAME`). The schema follows the Kotlin declarations: columns of non-null properties are
+`NOT NULL`, so selected values keep their property types. Generated code is plain Kotlin, so one can still see human
+readable code during debugging – just press "step into" when a generated method is encountered.
 
-A table whose `@Id` is not stored as `INTEGER`, such as a text key, can declare its row ID with `@RowId`. It becomes the
-table's `INTEGER PRIMARY KEY`, so `VACUUM` and a dump and restore keep it, while the `@Id` is stored as `UNIQUE` and
-stays the entity key. SQLite assigns it on insert and entity operations never write it. A full-text index on such a
-table needs it:
-
-```kotlin
-@Table
-data class Note(
-  @Id val id: String,
-  @RowId val rowId: Long? = null,
-  val title: String
-)
-```
-
-#### Do Operations With Objects:
-
-<table style="width:100%; border-collapse: collapse;" >
-<tr>
-<th>Synchronous</th>
-<th>RxJava</th>
-</tr>
-<tr style="background: none">
-<td style="padding:0; margin:0; border:none; width:50%;">
+### Do Operations With Objects
 
 ```kotlin
 import com.siimkinks.sqlitemagic.entity.EntityInsertResult
@@ -404,9 +189,7 @@ val book = Book(
   author = author
 )
 
-// insert -- NOTE: author object also gets
-// inserted and the whole operation
-// is wrapped in transaction
+// insert -- NOTE: author object also gets inserted and the whole operation is wrapped in transaction
 val inserted: EntityInsertResult = book
   .insert()
   .execute()
@@ -439,77 +222,7 @@ val bulkSuccess: Boolean = Authors
   .execute()
 ```
 
-</td>
-<td style="padding:0; margin:0; border:none; width:50%;">
-
-```kotlin
-import com.siimkinks.sqlitemagic.entity.EntityInsertResult
-import com.siimkinks.sqlitemagic.entity.EntityPersistResult
-import com.siimkinks.sqlitemagic.rxjava3.observe
-...
-
-val author = Author(
-  id = 73,
-  firstName = "Foo",
-  lastName = "Bar"
-)
-val book = Book(
-  id = 77,
-  title = "Bar",
-  author = author
-)
-
-// insert -- NOTE: author object also gets
-// inserted and the whole operation is
-// wrapped in transaction when result
-// object gets subscribed
-val insert: Single<EntityInsertResult> = book
-  .insert()
-  .observe()
-
-// update
-val update: Completable = author
-  .update()
-  .observe()
-
-// update or insert
-val persist: Single<EntityPersistResult> = author
-  .persist()
-  .observe()
-
-// update or insert but ignore null values
-val persistNonNull = author
-  .persist()
-  .ignoreNullValues()
-  .observe()
-
-// delete
-val delete: Single<Int> = author
-  .delete()
-  .observe()
-
-// Bulk operations are also supported
-val bulkPersist: Completable = Authors
-  .persist(someAuthors)
-  .ignoreNullValues()
-  .observe()
-```
-
-</td>
-</tr>
-</table>
-
-(All database operations notify the active observed queries, RxJava or coroutine `Flow`, that read the modified tables)
-
-#### Use Typesafe Operation Builders:
-
-<table style="width:100%; border-collapse: collapse;" >
-<tr>
-<th>Synchronous</th>
-<th>RxJava</th>
-</tr>
-<tr style="background: none">
-<td style="padding:0; margin:0; border:none; width:50%;">
+### Use Typesafe Operation Builders
 
 ```kotlin
 import com.siimkinks.sqlitemagic.AuthorTable.Companion.AUTHOR
@@ -540,74 +253,10 @@ val nrOfDeletedRows: Int = (
   .execute()
 ```
 
-</td>
-<td style="padding:0; margin:0; border:none; width:50%;">
+INSERT also takes a list of rows, the rows of a query and, with `ON_CONFLICT`, SQLite's UPSERT (SQLite 3.24, which
+the framework driver has from API 30):
 
 ```kotlin
-import com.siimkinks.sqlitemagic.AuthorTable.Companion.AUTHOR
-import com.siimkinks.sqlitemagic.BookTable.Companion.BOOK
-import com.siimkinks.sqlitemagic.rxjava3.observe
-...
-
-// columns left out take their defaults
-val insert: Single<Int> = (INSERT INTO AUTHOR)
-  .COLUMNS(AUTHOR.FIRST_NAME, AUTHOR.LAST_NAME)
-  .VALUES("Foo", "Bar")
-  .VALUES("Baz", null)
-  .observe()
-
-val update: Single<Int> = (
-    UPDATE
-        TABLE BOOK
-        SET (BOOK.TITLE to "Foo")
-        WHERE (BOOK.ID IS 77L)
-    )
-  .observe()
-
-val delete: Single<Int> = (
-    DELETE
-        FROM BOOK
-        WHERE ((BOOK.ID IS_NOT 77L)
-            AND (BOOK.TITLE IS "Foo"))
-    )
-  .observe()
-```
-
-</td>
-</tr>
-</table>
-
-Each `VALUES` call adds a row to the same statement. INSERT also takes a list of rows, the rows of a query and, with
-`ON_CONFLICT`, SQLite's UPSERT, which skips a row that conflicts with an existing row or updates the existing row:
-
-```kotlin
-// one row per list element
-(INSERT INTO AUTHOR)
-  .COLUMNS(AUTHOR.FIRST_NAME, AUTHOR.LAST_NAME)
-  .VALUES(someAuthors.map { Row2(it.firstName, it.lastName) })
-  .execute()
-
-// the rows of a query: copies someAuthor's books to otherAuthor
-val someAuthorsBooks = (
-    SELECT.COLUMNS(BOOK.TITLE, otherAuthor.id.asValue())
-        FROM BOOK
-        WHERE (BOOK.AUTHOR IS someAuthor.id)
-    )
-val nrOfCopiedBooks: Int = (INSERT INTO BOOK)
-  .COLUMNS(BOOK.TITLE, BOOK.AUTHOR)
-  .SELECT(someAuthorsBooks)
-  .execute()
-
-// the ID of the inserted row instead of the count, null when no row was inserted
-val authorId: Long? = (
-    INSERT
-        INTO AUTHOR
-        COLUMNS AUTHOR.LAST_NAME
-        VALUES "Bar"
-    )
-  .readRowId()
-  .execute()
-
 // insert the book, or update the existing book with this ID when its title differs;
 // EXCLUDED is the value that the INSERT proposed
 val nrOfWrittenRows: Int = (INSERT INTO BOOK)
@@ -620,28 +269,16 @@ val nrOfWrittenRows: Int = (INSERT INTO BOOK)
   .execute()
 ```
 
-A statement whose rows all come from empty lists inserts nothing and runs no SQL. `readRowId()` is offered on a
-statement of one row without `DO_UPDATE`. UPSERT (`ON_CONFLICT` with `DO_NOTHING()` or `DO_UPDATE`) needs SQLite
-3.24.0, which the framework driver has from API 30; several `ON_CONFLICT` clauses, and `DO_UPDATE` after
-`ON_CONFLICT()` without columns, need SQLite 3.35.0 (API 34). The bundled driver supports both. The library does not
-check the version: older SQLite rejects the statement with a syntax error.
+### Query Data
 
-#### Query Data:
 SqliteMagic ships with its own SQL-first DSL (or Domain Specific Language) that emulates SQL in Kotlin (inspired by
 [jOOQ](https://www.jooq.org/)). Clauses follow SQL order, each stage offers only what SQL allows next and every query is
 an immutable value that can be reused. Clauses are written infix, as below, or as dot calls:
 `SELECT.FROM(AUTHOR).WHERE(AUTHOR.LAST_NAME IS "Bar")`. The whole DSL is imported from `com.siimkinks.sqlitemagic`.
 
-<table style="width:100%; border-collapse: collapse;" >
-<tr>
-<th>Synchronous</th>
-<th>RxJava</th>
-</tr>
-<tr style="background: none">
-<td style="padding:0; margin:0; border:none; width:50%;">
-
 ```kotlin
 import com.siimkinks.sqlitemagic.AuthorTable.Companion.AUTHOR
+import com.siimkinks.sqlitemagic.BookTable.Companion.BOOK
 ...
 
 val authors: List<Author> = (
@@ -654,55 +291,7 @@ val authors: List<Author> = (
     )
   .execute()
 
-
-
-```
-
-</td>
-<td style="padding:0; margin:0; border:none; width:50%;">
-
-```kotlin
-import com.siimkinks.sqlitemagic.AuthorTable.Companion.AUTHOR
-import com.siimkinks.sqlitemagic.rxjava3.ListQueryObservable
-import com.siimkinks.sqlitemagic.rxjava3.observe
-...
-
-// ListQueryObservable is an Observable of Query
-// which offers query-specific convenience
-// operators, such as runQuery() that emits
-// List<Author> on every change.
-val observable: ListQueryObservable<Author> = (
-    SELECT
-        FROM AUTHOR
-        WHERE ((AUTHOR.FIRST_NAME LIKE "Foo%")
-            AND (AUTHOR.LAST_NAME IS_NOT "Bar"))
-        ORDER_BY AUTHOR.LAST_NAME.DESC()
-        LIMIT 10
-    )
-  .observe()
-```
-
-</td>
-</tr>
-</table>
-
-#### Query Complex Data:
-
-<table style="width:100%; border-collapse: collapse;" >
-<tr>
-<th>Synchronous</th>
-<th>RxJava</th>
-</tr>
-<tr style="background: none">
-<td style="padding:0; margin:0; border:none; width:50%;">
-
-```kotlin
-import com.siimkinks.sqlitemagic.AuthorTable.Companion.AUTHOR
-import com.siimkinks.sqlitemagic.BookTable.Companion.BOOK
-...
-
-// the resulting Book objects also contain
-// Author objects
+// the resulting Book objects also contain Author objects
 val books: List<Book> = (
     SELECT
         FROM BOOK
@@ -711,50 +300,16 @@ val books: List<Book> = (
         ORDER_BY AUTHOR.LAST_NAME.ASC()
         LIMIT 10
     )
-  // this tells to query all complex data
-  // which is queried in a single
-  // SELECT statement
+  // this tells to query all complex data which is queried in a single SELECT statement
   .queryDeep()
   .execute()
 ```
 
-</td>
-<td style="padding:0; margin:0; border:none; width:50%;">
+Without `queryDeep()`, each `Author` holds only its ID, since its other properties are nullable. Updating or persisting
+a `Book` also writes its `Author`, so writing back a shallow-queried `Book` sets the author's names to `NULL` unless it
+is persisted with `ignoreNullValues()`.
 
-```kotlin
-import com.siimkinks.sqlitemagic.AuthorTable.Companion.AUTHOR
-import com.siimkinks.sqlitemagic.BookTable.Companion.BOOK
-import com.siimkinks.sqlitemagic.rxjava3.ListQueryObservable
-import com.siimkinks.sqlitemagic.rxjava3.observe
-...
-
-// the resulting Book objects also contain
-// Author objects
-val observable: ListQueryObservable<Book> = (
-    SELECT
-        FROM BOOK
-        WHERE ((BOOK.TITLE IS "Bar")
-            AND (BOOK.AUTHOR IS someAuthor.id))
-        ORDER_BY AUTHOR.LAST_NAME.ASC()
-        LIMIT 10
-    )
-  // this tells to query all complex data
-  // which is queried in a single
-  // SELECT statement
-  .queryDeep()
-  .observe()
-```
-
-</td>
-</tr>
-</table>
-
-Without `queryDeep()`, each `Author` holds only its ID, since its other properties are nullable. A related object is
-built from its ID alone when all its other properties are nullable or have default values; otherwise it is always
-queried in full. Updating or persisting a `Book` also writes its `Author`, so writing back a shallow-queried `Book`
-sets the author's names to `NULL` unless it is persisted with `ignoreNullValues()`.
-
-#### Query Columns:
+### Query Columns
 
 ```kotlin
 data class AuthorName(val firstName: String?, val lastName: String?)
@@ -791,25 +346,113 @@ val count: Long = (SELECT FROM AUTHOR).count().execute()
 // rows read one at a time while the block runs
 val firstTitles = (SELECT COLUMN BOOK.TITLE FROM BOOK ORDER_BY BOOK.TITLE.ASC())
   .useRows { titles -> titles.take(10).toList() }
+```
 
-// raw SQL whose columns are known only when it runs
-val columnNames = SELECT.RAW("PRAGMA table_info(book)").useRows { rows ->
-  buildList {
-    while (rows.step()) {
-      add(rows.read(1, SqlType.STRING))
-    }
-  }
+There is so much more to querying data like joins, subqueries, compound queries, common table expressions (`WITH`),
+SQL functions, window functions, views, compiled queries with named parameters, raw SQL, etc. **Every part of the DSL
+is documented in KDoc, and the [sample app](sqlitemagic-sample) shows the pieces working together.**
+
+### Observe Queries and Run Asynchronously
+
+Every operation above ends in `execute()`, which blocks the calling thread. The adapters replace it: `observe()` on a
+query emits again whenever a queried table changes, and one-shot work becomes a suspend function or an RxJava type.
+The RxJava 3 and RxJava 2 adapters have the same API, in `com.siimkinks.sqlitemagic.rxjava3` and
+`com.siimkinks.sqlitemagic.rxjava2`.
+
+<table>
+<tr>
+<th>Coroutines</th>
+<th>RxJava</th>
+</tr>
+<tr>
+<td width="50%">
+
+```kotlin
+import com.siimkinks.sqlitemagic.coroutines.await
+import com.siimkinks.sqlitemagic.coroutines.observe
+import com.siimkinks.sqlitemagic.coroutines.runQuery
+...
+
+val authors: Flow<List<Author>> = (SELECT FROM AUTHOR)
+  .observe()
+  .runQuery()
+
+suspend fun save(author: Author): EntityInsertResult = author
+  .insert()
+  .await()
+
+suspend fun rename(id: Long, title: String): Int = (
+    UPDATE
+        TABLE BOOK
+        SET (BOOK.TITLE to title)
+        WHERE (BOOK.ID IS id)
+    )
+  .await()
+```
+
+</td>
+<td width="50%">
+
+```kotlin
+import com.siimkinks.sqlitemagic.rxjava3.observe
+...
+
+
+
+val authors: Observable<List<Author>> = (SELECT FROM AUTHOR)
+  .observe()
+  .runQuery()
+
+fun save(author: Author): Single<EntityInsertResult> = author
+  .insert()
+  .observe()
+
+fun rename(id: Long, title: String): Single<Int> = (
+    UPDATE
+        TABLE BOOK
+        SET (BOOK.TITLE to title)
+        WHERE (BOOK.ID IS id)
+    )
+  .observe()
+```
+
+</td>
+</tr>
+</table>
+
+All database operations notify the active observed queries that read the modified tables. Coroutine work runs on
+`Dispatchers.IO` and RxJava query streams on `Schedulers.io()`, unless the builder sets another with
+`dispatchCoroutineQueriesOn` or `scheduleRxQueriesOn`. See
+[Coroutines and RxJava](.agents/skills/sqlitemagic/references/reactive.md) for every operator and result type.
+
+### Run Transactions
+
+Run suspending work in one transaction with `withTransaction`. It commits when the block and the coroutines it launched
+complete, and rolls back when they fail or are cancelled:
+
+```kotlin
+import com.siimkinks.sqlitemagic.coroutines.await
+import com.siimkinks.sqlitemagic.coroutines.observe
+import com.siimkinks.sqlitemagic.coroutines.runQueryOnce
+import com.siimkinks.sqlitemagic.coroutines.withTransaction
+
+suspend fun renameAuthor(id: Long, lastName: String) = withTransaction {
+  val author = (SELECT FROM AUTHOR WHERE (AUTHOR.ID IS id))
+    .takeFirst()
+    .observe()
+    .runQueryOnce()
+  author
+    ?.copy(lastName = lastName)
+    ?.update()
+    ?.await()
 }
 ```
 
-`useRows` holds a database connection until its block returns, and the rows can be read only inside the block.
+Blocking code uses `inTransaction { }` or `newTransaction()`, whose transaction belongs to the thread that started it.
+Observers of the changed tables are notified after the commit. See
+[Transactions](.agents/skills/sqlitemagic/references/transactions.md) for the rules inside both kinds.
 
-There is so much more to querying data like joins, subqueries, compound queries, common table expressions (`WITH`),
-SQL functions, window functions, views, compiled queries with named parameters, raw SQL, RxJava convenience operators,
-etc. **Every part of the DSL is documented in KDoc, and the [sample app](sqlitemagic-sample) shows the pieces working
-together.**
-
-#### Full-Text Search:
+### Full-Text Search
 
 `@FullTextIndex` declares an SQLite full-text index on a table and `@FullText` the columns it indexes:
 
@@ -824,9 +467,9 @@ data class Article(
 )
 ```
 
-The schema creates the index as an external-content FTS table, `article_fts`, that generated triggers keep in sync,
-so the app writes only `Article`. Migrations create, drop and refill the index as the model changes. Queries search it
-through the generated index object `ARTICLE_FTS`:
+The schema creates the index as an FTS table, `article_fts`, that generated triggers keep in sync, so the app writes
+only `Article`. Migrations create, drop and refill the index as the model changes. Queries search it through the
+generated index object `ARTICLE_FTS`:
 
 ```kotlin
 import com.siimkinks.sqlitemagic.ArticleFtsTable.Companion.ARTICLE_FTS
@@ -858,39 +501,22 @@ val hits: List<Row3<Article, String, String>> = (
   .execute()
 ```
 
-A query that searches the index joins it with an `INNER JOIN` directly after its table, so SQLite scans the index
-first. Join it explicitly, `INNER_JOIN ARTICLE_FTS ON (ARTICLE_FTS.ROWID IS ARTICLE.ID)`, when the table is a source
-more than once or only through a relationship. `ARTICLE_FTS.TITLE MATCH query` searches one column, and `rebuild()`,
-`optimize()` and `integrityCheck()` on the index object maintain the index. A database with a full-text index runs its
-connections with `PRAGMA recursive_triggers = ON`, so rows that `CONFLICT_REPLACE` replaces leave the index.
+The table needs a stable row ID: an `@Id` stored as `INTEGER`, or a
+[`@RowId`](.agents/skills/sqlitemagic/references/models.md#ids). FTS5 needs the bundled driver;
+`@FullTextIndex(version = FullTextVersion.FTS4)` declares an FTS4 index, which both drivers support, without `RANK`,
+`BM25` and `HIGHLIGHT`. See [Full-text search](.agents/skills/sqlitemagic/references/full-text-search.md) for index
+options, joins and index maintenance.
 
-The table needs a stable row ID: an `@Id` stored as `INTEGER`, or a [`@RowId`](#define-database). FTS5 needs the
-bundled driver; `@FullTextIndex(version = FullTextVersion.FTS4)` declares an FTS4 index, which both drivers support.
-FTS4 has no `RANK`, `BM25` or `HIGHLIGHT`, and reads the matches with `SNIPPET`, `OFFSETS` and `MATCHINFO`.
-
-#### Migrate Database:
+### Migrate Database
 
 Debug databases migrate automatically when the schema changes. When releasing a new database version, raise
-`@Database(version)` and run `./gradlew migrateReleaseDb` (`migrateFreeReleaseDb` with flavors). In application
-modules only the selected migration release variant can run it: the first release variant, or the one set with
-`sqlitemagic { migrationTesting { releaseVariant = "paidRelease" } }`. It records the release schema in
-`db/releases` and generates its migration script into `src/release/assets`; commit both.
+`@Database(version)` and run `./gradlew migrateReleaseDb` (`migrateFreeReleaseDb` with flavors). It records the release
+schema in `db/releases` and generates its migration script into `src/release/assets`; review the script and commit
+both. The rest of `db/` and the debug migration scripts are local build state to keep
+[out of version control](.agents/skills/sqlitemagic/references/migrations.md#version-control).
 
-To see what the next release would contain, run `./gradlew previewReleaseDbMigration` (or
-`preview<Variant>DbMigration`) at any time, without raising the version first. It prints the schema changes since the
-latest release, the migration warnings and the migration SQL, and saves them in
-`build/sqlitemagic/release/migration-preview` without publishing anything.
-
-Builds also keep the current schema in `db/` and write debug migration scripts into `src/debug/assets` (or the debug
-variant's directory, such as `src/freeDebug/assets`). These are local build state, so keep them out of version control:
-
-```gitignore
-**/db/latest*.struct
-**/db/latest_*.version
-**/db/*.changed
-**/src/debug/assets/*.sql
-**/src/*Debug/assets/*.sql
-```
+To see what the next release would contain, run `./gradlew previewReleaseDbMigration` at any time, without raising the
+version first. It prints the schema changes since the latest release, the migration warnings and the migration SQL.
 
 Application modules also get generated JVM migration test support. Add a JVM SQLite driver, such as
 `androidx.sqlite:sqlite-bundled-jvm`, and a test framework to the unit tests, then validate every recorded release
@@ -911,47 +537,33 @@ fun `all releases migrate to the current schema`() {
 }
 ```
 
-Documentation
------------------
+See [Schema changes and migrations](.agents/skills/sqlitemagic/references/migrations.md) for what each model change
+does to existing data, product flavors and editing migration scripts.
+
+## Documentation
 
 - [Sample app](sqlitemagic-sample) – a todo app with tables, a view, full-text search, reactive queries and migration
   tests
 - [Using SqliteMagic](.agents/skills/sqlitemagic/SKILL.md) – a guide to every feature of 3.x and how to use it
   idiomatically and efficiently: models, entity operations, the query DSL, raw SQL, views, full-text search,
-  coroutines and RxJava, transactions, migrations and performance. It is also an agent skill: copy the `sqlitemagic`
-  directory into your project's skills directory, such as `.claude/skills/`, so a coding agent writes SqliteMagic code
-  the way it is meant to be written
+  coroutines and RxJava, transactions, migrations and performance
 - [Upgrading from 2.x or 0.x](.agents/skills/sqlitemagic-upgrade/SKILL.md) – 3.x rewrites the query DSL and runs
   on an androidx `SQLiteDriver`; this guide maps legacy setup and queries to 3.x, lists behavior changes and covers the
-  first database release on 3.x. It is also an agent skill: copy the `sqlitemagic-upgrade` directory into your
-  project's skills directory, such as `.claude/skills/`, to let a coding agent do the upgrade
+  first database release on 3.x
+- [CHANGELOG](CHANGELOG.md) – all updates
 - [Wiki](https://github.com/SiimKinks/sqlitemagic/wiki) and [Javadoc](https://siimkinks.github.io/sqlitemagic/javadoc/)
   for 0.x
 
-Updates
-------------
+Both guides are also agent skills: copy the `sqlitemagic` or `sqlitemagic-upgrade` directory into your project's skills
+directory, such as `.claude/skills/`, so a coding agent writes SqliteMagic code the way it is meant to be written or
+does the upgrade.
 
-All updates can be found in the [CHANGELOG](CHANGELOG.md).
-
-Bugs and Feedback
------------------
+## Bugs and Feedback
 
 **For bugs, questions and discussions please use the [Github Issues](https://github.com/SiimKinks/sqlitemagic/issues).**
 
-License
---------
+## License
 
-    Copyright 2026 Siim Kinks
+Copyright 2026 Siim Kinks
 
-    Licensed under the Apache License, Version 2.0 (the "License");
-    you may not use this file except in compliance with the License.
-    You may obtain a copy of the License at
-
-       http://www.apache.org/licenses/LICENSE-2.0
-
-    Unless required by applicable law or agreed to in writing, software
-    distributed under the License is distributed on an "AS IS" BASIS,
-    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-    See the License for the specific language governing permissions and
-    limitations under the License.
-
+Licensed under the [Apache License, Version 2.0](LICENSE).

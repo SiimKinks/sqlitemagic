@@ -32,7 +32,8 @@ data class Author(
 - The table name is the class name in lower snake case (`BookReview` → `book_review`; nested classes prefix their
   enclosing names). `@Table("name")` overrides it, as `@Column("name")` overrides a column's.
 - Every property with a backing field is persisted (`persistAll = true`); exclude one with `@IgnoreColumn`. With
-  `@Table(persistAll = false)`, only `@Id`, `@RowId`, `@Column` and `@Embedded` properties are persisted.
+  `@Table(persistAll = false)`, only `@Id`, `@RowId`, `@Column`, `@Embedded` and `@FullText` properties are
+  persisted.
 - `@Table(options = [TableOption.WITHOUT_ROWID])` stores rows by the declared `@Id`; use it for tables keyed by a
   non-integer ID that are read by key. `TableOption.TEMPORARY` creates the table per connection in the temporary
   database: it starts empty on every open and is not shared between connections.
@@ -58,13 +59,14 @@ data class Author(
   foreign keys automatically.
 - An ID that is a row-ID alias (`Long?` auto-increment) or a `WITHOUT ROWID` key is never NULL once stored, so
   `BOOK.ID` selects as `Long` although the property is `Long?`.
-- `@RowId` goes beside an `@Id` that does not store as INTEGER (text, real or transformed); an INTEGER `@Id` already is
-  the row ID, and a table without an `@Id` declares `@Id val id: Long? = null` instead. The property is `Long?`, in a
-  rowid table (not `WITHOUT_ROWID` or `TEMPORARY`), at most one per table, not inside an embedded value, and without
-  `@Id`, `@Unique`, `@Index`, `@IgnoreColumn` or `@Column(defaultValue / belongsToIndex)`. The `@Id` stays the key of
-  lookups, relationships and entity operations. Entity operations never write the row ID: SQLite assigns it on insert,
-  the insert result's `rowId` returns it and a `var rowId` is assigned; update and persist keep it.
-  `CONFLICT_REPLACE` deletes the old row, so the replacement gets a new row ID. `NOTE.ROW_ID` selects as `Long`.
+- `@RowId` goes beside an `@Id` that does not store as INTEGER (text or real, including a transformed type stored as
+  one of them); an INTEGER `@Id` already is the row ID, and a table without an `@Id` declares
+  `@Id val id: Long? = null` instead. The property is `Long?`, in a rowid table (not `WITHOUT_ROWID` or `TEMPORARY`),
+  at most one per table, not inside an embedded value, and without `@Id`, `@Unique`, `@Index`, `@IgnoreColumn` or
+  `@Column(defaultValue / belongsToIndex)`. The `@Id` stays the key of lookups, relationships and entity operations.
+  Entity operations never write the row ID: SQLite assigns it on insert, the insert result's `rowId` returns it and a
+  `var rowId` is assigned; update and persist keep it. `CONFLICT_REPLACE` deletes the old row, so the replacement gets
+  a new row ID. Its generated field (`ROW_ID` for `rowId`) selects as `Long`.
 - A table without an ID but with a non-null single-column `@Unique` property supports update, persist and delete by
   that column: `entity.update().execute(ACCOUNT_SETTINGS.ACCOUNT_KEY)`
   ([entity-operations.md](entity-operations.md#tables-without-an-id)).
@@ -223,8 +225,8 @@ data class Library(
 - A nullable embedded value stores NULL in all its columns and reads `null` when they are all NULL; its columns are
   nullable whatever the inner types.
 - Embedded values nest; `@Column` and `@IgnoreColumn` work inside them. The `@Embedded` property itself takes none of
-  `@Column`, `@Id`, `@RowId`, `@IgnoreColumn`, `@Index` and `@Unique`, and `@Id` and `@RowId` are not allowed inside
-  an embedded value.
+  `@Column`, `@Id`, `@RowId`, `@IgnoreColumn`, `@Index`, `@Unique` and `@FullText`, and `@Id` and `@RowId` are not
+  allowed inside an embedded value.
 - Prefer `@Embedded` over a transformer that serializes several values into one TEXT column: the values stay
   queryable, sortable and indexable.
 

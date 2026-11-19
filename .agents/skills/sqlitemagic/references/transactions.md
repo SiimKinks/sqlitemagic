@@ -87,6 +87,9 @@ suspend fun renameAuthor(id: Long, name: String) = withTransaction {
   long loops.
 - A cancellation that arrives during the commit still throws `CancellationException` although the transaction
   committed; make the work idempotent where that matters.
+- A `withTransaction` inside another transaction runs as its nested transaction. That includes a transaction the
+  calling thread started with `newTransaction()`: that thread waits for the block with `runBlocking`.
+- Coroutine calls that wait for the writer connection suspend, so they hold no dispatcher thread while they wait.
 
 ## Rules inside a transaction
 
@@ -118,12 +121,12 @@ suspend fun renameAuthor(id: Long, name: String) = withTransaction {
 | Exception | Cause |
 | --- | --- |
 | `android.database.SQLException` (and framework subclasses such as `SQLiteConstraintException`) | SQLite rejected a statement: constraint, syntax, missing table, a feature the engine lacks; also a connection wait over `connectionPoolTimeout` |
-| `IllegalArgumentException` | a query rejected before SQL: outer-joined non-null field, ambiguous or missing relationship path, partial entity missing a required property, compound arm mapped with a function |
+| `IllegalArgumentException` | a query rejected before SQL: outer-joined non-null field or entity, ambiguous or missing relationship path, partial entity missing a required property, compound arm mapped with a function, a subquery or CTE with two columns of one name; a statement rejected before SQL: an INSERT column of another or an aliased table, a row that leaves a listed column without a value or assigns an unlisted one, `INSERT … SELECT` of an entity, `readRowId()` on a `WITHOUT ROWID` table, `EXCLUDED` or a `SET` target of another table |
 | `IllegalStateException` | transaction misuse: reading a reactive query on a thread holding a blocking transaction, statements after a transaction-wide rollback |
 | `OperationFailedException` | an entity write SQLite completed without writing ([entity-operations.md](entity-operations.md#failures)) |
 
 The pre-SQL rejections are programming errors: fix the query rather than catch them. They happen when the query is
-prepared, not when Kotlin compiles it, and `compile()` (or `takeFirst()`/`count()`) prepares without a database, so a
-plain JVM unit test that calls it on each query, or reads its `sql`, catches them. Parameters are checked when they
-are bound: `bind(…)` with a missing, repeated or foreign parameter, or executing a parameterized plan unbound, throws
-`IllegalArgumentException`, so a test catches those only by binding the plan.
+built or prepared, not when Kotlin compiles it, and `compile()` (or `takeFirst()`/`count()`) prepares without a
+database, so a plain JVM unit test that calls it on each query, or reads its `sql`, catches them. Parameters are
+checked when they are bound: `bind(…)` with a missing, repeated or foreign parameter, or executing a parameterized
+plan unbound, throws `IllegalArgumentException`, so a test catches those only by binding the plan.

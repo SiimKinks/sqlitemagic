@@ -64,7 +64,7 @@ internal class DefaultDbDowngraderTest {
   }
 
   @Test
-  fun `downgrade drops full-text tables before their shadow tables`() {
+  fun `downgrade drops triggers, views and full-text tables before the tables that cascade into them`() {
     val drops = mutableListOf<String>()
     val names = BundledSQLiteDriver()
       .open(MEMORY_DATABASE)
@@ -74,8 +74,22 @@ internal class DefaultDbDowngraderTest {
             .prepare(sql)
             .also { if (sql.startsWith("DROP")) drops += sql }
         }
-        connection.execSQL("CREATE TABLE article (id INTEGER PRIMARY KEY, title TEXT)")
+        connection.execSQL("PRAGMA foreign_keys = ON")
+        connection.execSQL("CREATE TABLE author (id INTEGER PRIMARY KEY)")
+        connection.execSQL(
+          "CREATE TABLE article (id INTEGER PRIMARY KEY, author INTEGER REFERENCES author(id) ON DELETE CASCADE, " +
+              "title TEXT)"
+        )
         connection.execSQL("CREATE VIRTUAL TABLE article_fts USING fts5(title, content='article', content_rowid='id')")
+        connection.execSQL(
+          "CREATE TRIGGER article_fts_ad AFTER DELETE ON article BEGIN " +
+              "INSERT INTO article_fts(article_fts, rowid, title) VALUES ('delete', old.id, old.title); END"
+        )
+        connection.execSQL("CREATE VIEW article_titles AS SELECT title FROM article")
+        connection.execSQL("CREATE TABLE sqlitecache (id INTEGER)")
+        connection.execSQL("INSERT INTO author VALUES (1)")
+        connection.execSQL("INSERT INTO article VALUES (1, 1, 'Dune')")
+        connection.execSQL("INSERT INTO article_fts(article_fts) VALUES ('rebuild')")
 
         DefaultDbDowngrader(
           TestGeneratedDatabase(
@@ -90,7 +104,14 @@ internal class DefaultDbDowngraderTest {
         connection.query("SELECT name FROM sqlite_master ORDER BY name") { it.getText(0) }
       }
 
-    assertThat(drops.first() to names).isEqualTo("""DROP TABLE IF EXISTS "article_fts"""" to listOf("item"))
+    assertThat(drops.take(4) to names).isEqualTo(
+      listOf(
+        """DROP TRIGGER IF EXISTS "article_fts_ad"""",
+        """DROP VIEW IF EXISTS "article_titles"""",
+        """DROP TABLE IF EXISTS "article_fts"""",
+        """DROP TABLE IF EXISTS "author""""
+      ) to listOf("item")
+    )
   }
 
   @Test

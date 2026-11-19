@@ -60,11 +60,12 @@ data class AuthorSummary(
   names another, and is required for qualified names (`"author.name"`).
 - A property whose type is a `@Table` (or `@View`) model reads an entity value of the definition, matched by
   occurrence name: select `AUTHOR` and annotate `@ViewColumn("author") val author: Author`. Another key is another
-  occurrence, made with an alias: `val writer = AUTHOR AS "writer"`, used in `FROM` and `COLUMNS`, fills
+  occurrence, made with an alias: `val writer = AUTHOR AS "writer"`, used in `FROM` or a join and in `COLUMNS`, fills
   `@ViewColumn("writer")`. A view whose only property is an entity has the definition `SELECT FROM AUTHOR`.
-- The entity value joins its relationships as in queries: `ALWAYS` targets always, `DEEP` targets in full with
-  `queryDeep()` on the definition (for every block), otherwise built from their IDs. A block's own columns are named
-  `key.column` (`author.name`), and its relationships' by path (`author.publisher.id`).
+- The entity value joins its relationships as in queries: a related object that cannot be built from its ID always,
+  and one that can in full with `queryDeep()` on the definition (for every block), otherwise built from its ID. A
+  block's own columns are named `key.column` (`author.name`), and its relationships' by path
+  (`author.publisher.id`).
 - An entity on the NULL-extended side of an outer join is selected with `nullable()`, into a nullable property: with
   `.LEFT_JOIN(BOOK)`, select `BOOK.nullable()` and declare `@ViewColumn("book") val book: Book?`; it reads `null` when
   every column of the book's own row is NULL. Without `nullable()`, or into a non-null property, the view fails when

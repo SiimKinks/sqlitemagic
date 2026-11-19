@@ -38,7 +38,7 @@ migration does to existing data and to test it.
 | Remove a property or class | drops the column (rebuild) or table | confirm the data is no longer needed |
 | Change a view query | recreates the view | nothing |
 | Add `onDeleteCascade` | adds the foreign key; deletes rows that reference missing rows | fix dangling rows in the script first |
-| Add, change or remove a full-text index | drops a removed or changed index before the table statements. Creates an added or changed one after them and refills it with `INSERT INTO "<index>"("<index>") VALUES ('rebuild')`, which reads every row of the table, including rows the script added. A rebuild or rename of its table replaces the index the same way; added columns leave it alone | nothing; the refill runs at the upgrade |
+| Add, change or remove a full-text index | drops a removed or changed index before the table statements. Creates an added or changed one after them and refills it from every row of the table, including rows the script added: FTS5 with `INSERT INTO "<index>"("<index>") VALUES ('rebuild')`, FTS4 with `INSERT INTO "<index>"(docid, …) SELECT … FROM "<table>"`. A rebuild or rename of its table replaces the index the same way; added columns leave it alone | nothing; the refill runs at the upgrade |
 | Add or remove `@RowId` | rebuilds the table, copying each row's row ID between the rowid and the `@RowId` column, so row IDs and child rows survive; a former `WITHOUT_ROWID` table gets new row IDs, and an existing column that gains `@RowId` keeps its own values | an existing column's values are unique |
 
 Every step that discards data is printed as a build warning (`Migration deletes …`, dropped columns and tables), in
@@ -143,8 +143,9 @@ class DatabaseMigrationTest {
 
 - `validateAllMigrations` checks that every recorded release migrates to exactly the current schema, full-text indexes
   and their triggers included. Keep it in every app with a released database.
-- Every migration test also checks each full-text index against its table's rows (`integrity-check`), which only sees
-  rows a test seeded; `validateAllMigrations` migrates empty databases.
+- Every migration test also checks each full-text index against its table's rows (`integrity-check`, and for FTS4 a
+  comparison of its copy of the text with the table), which only sees rows a test seeded; `validateAllMigrations`
+  migrates empty databases.
 - Data tests seed an old version with raw SQL and assert rows after `runMigrationsAndValidate`; write one for every
   migration that transforms or may delete data, and for every script edited to move rows into or out of a table with
   a full-text index.

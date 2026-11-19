@@ -15,7 +15,8 @@ class CompiledMutation internal constructor(
   private val tables: Array<out String>,
   private val deletedTable: String?,
   private val cache: Boolean,
-  private val skipped: Boolean
+  private val skipped: Boolean,
+  private val prelude: List<String>
 ) {
   /**
    * SQL of this statement.
@@ -31,11 +32,17 @@ class CompiledMutation internal constructor(
    */
   fun execute(): Int = when {
     skipped -> 0
-    else -> execute(
-      run = MutationResults::executeUpdateDelete,
-      changed = { it > 0 }
+    prelude.isNotEmpty() -> resolveConnection().atomically(
+      operation = ::executeUpdateDelete,
+      keep = { true }
     )
+    else -> executeUpdateDelete()
   }
+
+  private fun executeUpdateDelete() = execute(
+    run = MutationResults::executeUpdateDelete,
+    changed = { prelude.isNotEmpty() || it > 0 }
+  )
 
   internal fun executeRowId() = execute(
     run = MutationResults::executeInsert,
@@ -48,6 +55,7 @@ class CompiledMutation internal constructor(
   ): T {
     val connection = resolveConnection()
     val result = connection.write { pooled ->
+      prelude.forEach(pooled::execute)
       pooled.withStatement(
         sql = prepared.sql,
         cache = cache

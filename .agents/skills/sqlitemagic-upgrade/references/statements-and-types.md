@@ -119,15 +119,22 @@ val QUERY = (
 - Values in a definition render as SQL literals, so plain values replace `asColumn(…)` there. Raw expressions in a
   definition write constants into the text: SQLite rejects view parameters.
 - A table- or view-typed property reads the entity value of the occurrence its key names: `TODO_LIST` fills
-  `@ViewColumn("todo_list")`, and an alias (`TODO_LIST AS "list"`, used in `FROM` and `COLUMNS`) fills another key.
-  Write legacy `TABLE.all() AS "key"` as that occurrence, and an outer-joined block as `TABLE.nullable()` into a
-  nullable property. `all()` selects plain columns only; it does not fill such a property, and the view fails when it
-  is created. A view whose only property is an entity is `SELECT FROM TABLE`.
+  `@ViewColumn("todo_list")`, and an alias (`TODO_LIST AS "list"`, used in `FROM`, the joins and `COLUMNS`) fills
+  another key. Write legacy `TABLE.all() AS "key"` as that occurrence, and an outer-joined block as `TABLE.nullable()`
+  into a nullable property. A legacy `AUTHOR.all() AS "writer"` over an automatically joined author needs an explicit
+  aliased join: `val writer = AUTHOR AS "writer"`, then `INNER_JOIN writer ON (BOOK.AUTHOR IS writer.ID)` and
+  `writer` among the values (`LEFT_JOIN` and `writer.nullable()` for a nullable relationship). `all()` selects plain
+  columns only; it does not fill such a property, and the view fails when it is created. A view whose only property
+  is an entity is `SELECT FROM TABLE`.
 - The entity joins its relationships itself: drop related tables selected only to fill them, and add `queryDeep()` to
-  the definition to read `DEEP` ones in full. Its own columns keep `key.column` names; its relationships' columns are
-  named by path (`key.relationship.column`).
+  the definition to read in full the ones otherwise built from their IDs. Its own columns keep `key.column` names;
+  its relationships' columns are named by path (`key.relationship.column`).
 - A scalar property reads a column the definition selects itself, never one inside an entity: a `SELECT FROM TABLE`
   definition read by scalar `@ViewColumn("table.column")` keys becomes `SELECT.COLUMNS(TABLE.all()) FROM TABLE`.
+- Two columns of one name fail when the view is created, naming both: a legacy view selecting `BOOK.all() AS "book"`
+  and `BOOK.TITLE` becomes `BOOK` and `BOOK.TITLE`, which both export `book.title`. Alias the scalar
+  (`BOOK.TITLE AS "title"`) and change its `@ViewColumn` key to `title`
+  ([behavior](behavior.md#subqueries-and-views-reject-repeated-column-names)).
 - View columns are named by qualified names (`book.title`) or `AS` aliases. The example's view columns change from
   `id`, `name` to `todo_list.id`, `todo_list.name`, so databases already installed need a schema upgrade before the
   view can be read; see [behavior](behavior.md#view-columns-have-qualified-names), which also covers raw SQL over

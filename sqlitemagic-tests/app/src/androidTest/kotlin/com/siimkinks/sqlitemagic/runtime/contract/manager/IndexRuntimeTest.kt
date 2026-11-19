@@ -189,16 +189,15 @@ internal class IndexRuntimeTest {
         "CREATE TABLE changed_note (id INTEGER PRIMARY KEY, title TEXT, body TEXT)",
         "INSERT INTO changed_note (id, title, body) VALUES (1, 'Dune', 'A desert planet')",
         "INSERT INTO changed_note (id, title, body) VALUES (2, 'Emma', 'A novel of manners')",
-        "CREATE VIRTUAL TABLE changed_note_fts USING fts4(title, content='changed_note')",
+        "CREATE VIRTUAL TABLE changed_note_fts USING fts4(title)",
         "CREATE TRIGGER changed_note_fts_ai AFTER INSERT ON changed_note BEGIN " +
             "INSERT INTO changed_note_fts(docid, title) VALUES (new.id, new.title); END",
-        "CREATE TRIGGER changed_note_fts_bd BEFORE DELETE ON changed_note BEGIN " +
-            "DELETE FROM changed_note_fts WHERE docid = old.id; END",
-        "CREATE TRIGGER changed_note_fts_bu BEFORE UPDATE OF id, title ON changed_note BEGIN " +
+        "CREATE TRIGGER changed_note_fts_ad AFTER DELETE ON changed_note BEGIN " +
             "DELETE FROM changed_note_fts WHERE docid = old.id; END",
         "CREATE TRIGGER changed_note_fts_au AFTER UPDATE OF id, title ON changed_note BEGIN " +
+            "DELETE FROM changed_note_fts WHERE docid = old.id; " +
             "INSERT INTO changed_note_fts(docid, title) VALUES (new.id, new.title); END",
-        "INSERT INTO changed_note_fts(changed_note_fts) VALUES ('rebuild')",
+        "INSERT INTO changed_note_fts(docid, title) SELECT id, title FROM changed_note",
         "CREATE TABLE added_note (id INTEGER PRIMARY KEY, body TEXT)",
         "INSERT INTO added_note (id, body) VALUES (1, 'Sail the sea')"
       )
@@ -251,12 +250,10 @@ internal class IndexRuntimeTest {
         )
       ).containsExactly(
         "changed_note_fts_ai",
-        "changed_note_fts_bd",
-        "changed_note_fts_bu",
+        "changed_note_fts_ad",
         "changed_note_fts_au",
         "added_note_fts_ai",
-        "added_note_fts_bd",
-        "added_note_fts_bu",
+        "added_note_fts_ad",
         "added_note_fts_au"
       )
     }

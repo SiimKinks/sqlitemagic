@@ -6,7 +6,6 @@ import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import com.google.common.truth.Truth.assertThat
 import com.google.common.truth.Truth.assertWithMessage
 import com.siimkinks.sqlitemagic.FullTextModule.FTS4
-import com.siimkinks.sqlitemagic.FullTextModule.FTS5
 import com.siimkinks.sqlitemagic.migration.MigrationConfiguration
 import com.siimkinks.sqlitemagic.migration.MigrationDatabaseDescriptor
 import com.siimkinks.sqlitemagic.migration.MigrationManifest
@@ -998,48 +997,27 @@ internal class SqliteMagicMigrationTestHelperTest {
   @Test
   fun `full-text index migrations that leave the index stale or lose a trigger fail validation`() {
     val edits = mapOf(
-      "index without its rebuild" to { script: String -> script.lineSequence().filterNot { "'rebuild'" in it } },
+      "index without its fill" to { script: String ->
+        script
+          .lineSequence()
+          .filterNot { it.startsWith("""INSERT INTO main."article_fts"""") }
+      },
       "index without its update trigger" to { script: String -> script.lineSequence().filterNot { "_au" in it } }
     )
     val failures = FullTextModule.entries.flatMap { module ->
       edits.map { (label, edit) ->
-        val descriptor = fullTextHistory(module)
-        descriptor.resources["2.sql"] = edit(descriptor.text("2.sql"))
-          .joinToString(separator = "\n")
-          .toByteArray()
-        val message = SqliteMagicMigrationTestHelper(
-          descriptor = descriptor,
-          driver = BundledSQLiteDriver()
-        ).use { helper ->
-          helper.createDatabase(
-            name = "search",
-            version = 1
-          )
-            .use { database -> database.execute("INSERT INTO article(id,title) VALUES (1,'Dune')") }
-          assertThrows(IllegalStateException::class.java) {
-            helper.runMigrationsAndValidate(
-              name = "search",
-              fromVersion = 1
-            )
-          }.message.orEmpty()
-        }
-        "$module $label" to message
-          .substringAfter("SQLite ")
-          .substringAfter(". ")
-          .lines()
-          .take(2)
+        "$module $label" to fullTextMigrationFailure(
+          module = module,
+          edit = edit
+        )
       }
     }
 
     assertThat(failures).isEqualTo(
       FullTextModule.entries.flatMap { module ->
         listOf(
-          "$module index without its rebuild" to listOf(
-            when (module) {
-              FTS5 -> "Full-text index article_fts is out of sync with its content table"
-              FTS4 ->
-                "SQLite integrity_check failed: [[malformed inverted index for FTS4 table main.article_fts]]"
-            }
+          "$module index without its fill" to listOf(
+            "Full-text index article_fts is out of sync with its content table"
           ),
           "$module index without its update trigger" to listOf(
             "Migration 1 -> 2 completed with a different target schema:",
@@ -1048,6 +1026,53 @@ internal class SqliteMagicMigrationTestHelperTest {
         )
       }
     )
+  }
+
+  @Test
+  fun `FTS4 index migrations whose fill drops the language fail validation`() {
+    val failure = fullTextMigrationFailure(module = FTS4) { script ->
+      script
+        .lineSequence()
+        .map { line ->
+          line.replace(
+            oldValue = FTS4.fillSql,
+            newValue = """INSERT INTO main."article_fts"(docid, "title") SELECT "id", "title" FROM main."article""""
+          )
+        }
+    }
+
+    assertThat(failure).isEqualTo(listOf("Full-text index article_fts is out of sync with its content table"))
+  }
+
+  private fun fullTextMigrationFailure(
+    module: FullTextModule,
+    edit: (String) -> Sequence<String>
+  ): List<String> {
+    val descriptor = fullTextHistory(module)
+    descriptor.resources["2.sql"] = edit(descriptor.text("2.sql"))
+      .joinToString(separator = "\n")
+      .toByteArray()
+    val message = SqliteMagicMigrationTestHelper(
+      descriptor = descriptor,
+      driver = BundledSQLiteDriver()
+    ).use { helper ->
+      helper.createDatabase(
+        name = "search",
+        version = 1
+      )
+        .use { database -> database.execute("INSERT INTO article(id,title,lang) VALUES (1,'Dune',1)") }
+      assertThrows(IllegalStateException::class.java) {
+        helper.runMigrationsAndValidate(
+          name = "search",
+          fromVersion = 1
+        )
+      }.message.orEmpty()
+    }
+    return message
+      .substringAfter("SQLite ")
+      .substringAfter(". ")
+      .lines()
+      .take(2)
   }
 
   private fun adoptedLegacyHistory(): MemoryDescriptor {
@@ -1117,7 +1142,7 @@ internal class SqliteMagicMigrationTestHelperTest {
   }
 
   private fun fullTextHistory(module: FullTextModule): MemoryDescriptor {
-    val table = "CREATE TABLE article(id INTEGER PRIMARY KEY, title TEXT)"
+    val table = "CREATE TABLE article(id INTEGER PRIMARY KEY, title TEXT, lang INTEGER)"
     val schemas = (1..2).map { version ->
       ReleaseSchemaSnapshot(
         formatVersion = 1,
@@ -1137,8 +1162,7 @@ internal class SqliteMagicMigrationTestHelperTest {
       )
     }
     val descriptor = descriptor(schemas = schemas)
-    val rebuild = """INSERT INTO main."article_fts"("article_fts") VALUES ('rebuild')"""
-    descriptor.resources["2.sql"] = (listOf(module.virtualTableSql) + module.triggerSql + rebuild)
+    descriptor.resources["2.sql"] = (listOf(module.virtualTableSql) + module.triggerSql + module.fillSql)
       .joinToString(
         separator = "\n",
         postfix = "\n"
@@ -1269,6 +1293,7 @@ private const val FULL_TEXT_UPDATED = """old."id" IS NOT new."id" OR old."title"
 private enum class FullTextModule(
   val virtualTableSql: String,
   val triggerSql: List<String>,
+  val fillSql: String,
   val integrityCheckSql: String
 ) {
   FTS5(
@@ -1280,19 +1305,21 @@ private enum class FullTextModule(
       """CREATE TRIGGER IF NOT EXISTS main."article_fts_au" AFTER UPDATE OF "id", "title", rowid, oid, _rowid_ """ +
           """ON "article" WHEN $FULL_TEXT_UPDATED BEGIN $FTS5_DELETE $FTS5_INSERT END"""
     ),
+    fillSql = """INSERT INTO main."article_fts"("article_fts") VALUES ('rebuild')""",
     integrityCheckSql = "INSERT INTO article_fts(article_fts, rank) VALUES ('integrity-check', 1)"
   ),
   FTS4(
     virtualTableSql = """CREATE VIRTUAL TABLE IF NOT EXISTS main."article_fts" USING fts4("title", """ +
-        """content='article')""",
+        """languageid="lang")""",
     triggerSql = listOf(
       """CREATE TRIGGER IF NOT EXISTS main."article_fts_ai" AFTER INSERT ON "article" BEGIN $FTS4_INSERT END""",
-      """CREATE TRIGGER IF NOT EXISTS main."article_fts_bd" BEFORE DELETE ON "article" BEGIN $FTS4_DELETE END""",
-      """CREATE TRIGGER IF NOT EXISTS main."article_fts_bu" BEFORE UPDATE OF "id", "title", rowid, oid, _rowid_ """ +
-          """ON "article" WHEN $FULL_TEXT_UPDATED BEGIN $FTS4_DELETE END""",
-      """CREATE TRIGGER IF NOT EXISTS main."article_fts_au" AFTER UPDATE OF "id", "title", rowid, oid, _rowid_ """ +
-          """ON "article" WHEN $FULL_TEXT_UPDATED BEGIN $FTS4_INSERT END"""
+      """CREATE TRIGGER IF NOT EXISTS main."article_fts_ad" AFTER DELETE ON "article" BEGIN $FTS4_DELETE END""",
+      """CREATE TRIGGER IF NOT EXISTS main."article_fts_au" AFTER UPDATE OF "id", "title", "lang", rowid, oid, """ +
+          """_rowid_ ON "article" WHEN $FULL_TEXT_UPDATED OR old."lang" IS NOT new."lang" BEGIN $FTS4_DELETE """ +
+          """$FTS4_INSERT END"""
     ),
+    fillSql = """INSERT INTO main."article_fts"(docid, "title", "lang") SELECT "id", "title", "lang" FROM """ +
+        """main."article"""",
     integrityCheckSql = "INSERT INTO article_fts(article_fts) VALUES ('integrity-check')"
   )
 }
@@ -1300,5 +1327,6 @@ private enum class FullTextModule(
 private const val FTS5_INSERT = """INSERT INTO "article_fts"(rowid, "title") VALUES (new."id", new."title");"""
 private const val FTS5_DELETE = """INSERT INTO "article_fts"("article_fts", rowid, "title") VALUES ('delete', """ +
     """old."id", old."title");"""
-private const val FTS4_INSERT = """INSERT INTO "article_fts"(docid, "title") VALUES (new."id", new."title");"""
+private const val FTS4_INSERT = """INSERT INTO "article_fts"(docid, "title", "lang") """ +
+    """VALUES (new."id", new."title", new."lang");"""
 private const val FTS4_DELETE = """DELETE FROM "article_fts" WHERE docid = old."id";"""

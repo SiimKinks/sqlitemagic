@@ -12,12 +12,14 @@ Version 3.1.0 _(unreleased)_
   compiles, in views or in wide rows. A table- or view-typed property reads the entity of the occurrence its key
   names, `TODO_LIST` or an alias `TODO_LIST AS "list"`, and an outer-joined one reads `TABLE.nullable()`. The entity
   joins its own relationships, reusing the definition's joins, and names their columns by path
-  (`todo_list.owner.id`); `queryDeep()` on the definition reads every `DEEP` relationship in full. Creating the view
-  fails, naming the property, when a property has no entity value (an unkeyed `all()` or aliased columns no longer
-  fill one), when a non-null property reads a `nullable()` entity, or when a scalar property names a column inside an
-  entity value. Installed databases need a new database version for views whose columns change
-* Breaking: A subquery, common table expression or view definition whose columns repeat a name fails when it is
-  created, naming both columns, instead of reading the first of them
+  (`todo_list.owner.id`); `queryDeep()` on the definition reads in full the related objects that are otherwise read
+  from their IDs. Creating the view fails, naming the property, when a property has no entity value (an unkeyed
+  `all()` or aliased columns no longer fill one), when a non-null property reads a `nullable()` entity, or when a
+  scalar property names a column inside an entity value. Installed databases need a new database version for views
+  whose columns change
+* Breaking: A subquery or common table expression whose columns repeat a name throws `IllegalArgumentException`,
+  naming both columns, when it is used as a source (`AS`, `asCte()`, `WITH` or `FROM`), and a view definition fails
+  when the view is created, instead of reading the first of them
 * Breaking: View columns are named as subquery columns are. A field is qualified by its table object as written, not
   by the occurrence it resolves to (`AUTHOR.NAME` beside a joined `AUTHOR AS "writer"` is `author.name`, not
   `writer.name`, and an automatically joined author is no longer `author_2.name`); `SELECT FROM` an aliased subquery
@@ -35,8 +37,10 @@ Version 3.1.0 _(unreleased)_
 * New: INSERT statements insert rows of the listed columns, and the other columns take their defaults. Each `VALUES`
   call adds a row to the same statement, a list of `Row1`–`Row9` adds one row per element, `DEFAULT_VALUES()` inserts
   a row of defaults and `SELECT(query)` inserts the rows of a query. More than nine columns take rows that assign each
-  column by name. `INSERT OR …` sets the conflict algorithm, `readRowId()` returns the row ID of a one-row insert
-  instead of the count, and `INSERT.RAW` runs raw INSERT SQL, as `UPDATE.RAW` and `DELETE.RAW` do
+  column by name. `INSERT OR …` sets the conflict algorithm, and `INSERT.RAW` runs raw INSERT SQL, as `UPDATE.RAW`
+  and `DELETE.RAW` do. `readRowId()` returns the row ID of a one-row insert instead of the count, or `null` when no
+  row is inserted (`CONFLICT_IGNORE`, `DO_NOTHING()`), so its RxJava `observe()` emits a `Maybe` and its coroutines
+  `await()` returns `Long?`
 * New: Native UPSERT: `ON_CONFLICT(columns)` after an INSERT's rows, followed by `DO_NOTHING()` or by `DO_UPDATE`
   with `SET` and an optional `WHERE`, which read the proposed row through `column.EXCLUDED`. Several `ON_CONFLICT`
   clauses handle different unique constraints, and `ON_CONFLICT()` handles any unique constraint. UPSERT needs SQLite
@@ -47,13 +51,14 @@ Version 3.1.0 _(unreleased)_
   `UNIQUE` and stays the entity key. SQLite assigns it on insert; entity operations never write it. Adding or removing
   it migrates the table and keeps the row IDs of a table that stays a rowid table
 * New: Full-text search: `@FullTextIndex` on a table and `@FullText` on its columns declare an SQLite FTS5 index, which
-  needs the bundled driver, or with `version = FTS4` an FTS4 index, which the framework driver supports too. The schema
-  creates it as an external-content FTS table that generated triggers keep in sync, migrations create, drop and refill
-  it as the model changes, and its connections run with `PRAGMA recursive_triggers = ON`, so rows replaced by
-  `CONFLICT_REPLACE` leave the index. The generated index object (`ARTICLE_FTS`) searches it with `MATCH`, joined
-  directly after its table. FTS5 ranks matches with `RANK` and `BM25` and marks them with `HIGHLIGHT` and `SNIPPET`;
-  FTS4 reads them with `SNIPPET`, `OFFSETS` and `MATCHINFO`. `terms(input)` turns user input into a query that cannot
-  fail, and `rebuild()`, `optimize()` and `integrityCheck()` maintain the index
+  needs the bundled driver, or with `version = FTS4` an FTS4 index, which the framework driver supports too and which
+  stores its own copy of the indexed text. The schema creates it as an FTS table that generated triggers keep in sync,
+  migrations create, drop and refill it as the model changes, and its connections run with
+  `PRAGMA recursive_triggers = ON`, so rows replaced by `CONFLICT_REPLACE` leave the index. The generated index object
+  (`ARTICLE_FTS`) searches it with `MATCH`, joined directly after its table. FTS5 ranks matches with `RANK` and `BM25`
+  and marks them with `HIGHLIGHT` and `SNIPPET`; FTS4 reads them with `SNIPPET`, `OFFSETS` and `MATCHINFO`.
+  `terms(text)` turns user input into a query that cannot fail, and `rebuild()`, `optimize()` and `integrityCheck()`
+  maintain the index
 * New: `readAs(type)` on an expression reads its values as another type without changing the SQL, such as a `COUNT()`
   inserted into an `Int` column
 * Fix: Entity `insert()` and `persist()` of a row stored with rowid −1 return `Inserted` and notify observers instead
