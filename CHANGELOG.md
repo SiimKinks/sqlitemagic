@@ -1,7 +1,7 @@
 Change Log
 ==========
 
-Version 3.1.0 _(unreleased)_
+Version 3.1.0 _(2026-11-19)_
 ---------------------------------
 
 * Breaking: `RowSelection` takes the selected expressions' value types as its first type argument, as in
